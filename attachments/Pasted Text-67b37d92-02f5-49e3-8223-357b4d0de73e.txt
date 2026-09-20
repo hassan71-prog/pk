@@ -1,0 +1,750 @@
+Build a complete production-ready Progressive Web App (PWA) called “TaskEarn PK”, designed as a legitimate rewards-and-tasks platform for users in Pakistan.
+
+IMPORTANT:
+
+- This must be a real functional web application, not a static UI mockup.
+- Build the frontend, backend, database, authentication, admin panel, APIs, PWA installation support, and Telegram Mini App integration.
+- Do NOT create a fake cryptocurrency, fake mining system, fake investment scheme, or guaranteed-profit system.
+- Points/rewards must be backed by actual platform revenue such as sponsored tasks, affiliate commissions, or paid promotional campaigns.
+- Never tell users that points are guaranteed to have monetary value unless an actual redemption system and sufficient funds exist.
+
+1. TECHNOLOGY
+
+Use:
+
+Frontend:
+
+- HTML5
+- CSS3
+- JavaScript
+- Responsive mobile-first UI
+- PWA
+- Telegram Mini Apps JavaScript SDK
+
+Backend:
+
+- PHP 8+
+- REST-style PHP APIs
+- PDO with prepared statements
+- MySQL/MariaDB
+
+Authentication:
+
+- Telegram Mini App authentication
+- Secure server-side Telegram initData validation
+- Optional email/password authentication for the standalone PWA
+
+PWA:
+
+- manifest.json
+- service worker
+- installable on Android/Desktop
+- offline shell/cache for non-sensitive static assets
+- HTTPS requirement
+
+2. USER APPLICATION
+
+Create these main sections:
+
+HOME
+
+Show:
+
+- User profile/avatar
+- Welcome message
+- Total points
+- Today's earning
+- Total referrals
+- Tasks completed
+- Daily reward button
+- Featured tasks
+- Recent transactions
+- Quick navigation
+
+Example:
+
+TaskEarn PK
+Welcome back 👋
+
+🪙 12,500 Points
+
+[ 🎁 Claim Daily Reward ]
+
+Today's Earnings: +1,250
+Referrals: 8
+Tasks Completed: 21
+
+Featured Tasks:
+
+- Join Telegram Channel +500
+- Visit Website +300
+- Sponsored Task +1,000
+
+3. POINTS SYSTEM
+
+Implement a secure points ledger.
+
+Every points change must create a transaction record.
+
+Types:
+
+- daily_reward
+- task_reward
+- referral_reward
+- bonus
+- admin_adjustment
+- withdrawal
+- reversal
+
+Never trust the frontend to add points.
+
+All balance changes must happen server-side.
+
+Use database transactions to prevent double rewards and race conditions.
+
+4. DAILY REWARD
+
+Create a daily check-in system.
+
+Rules:
+
+- One daily reward per eligible user per calendar day.
+- Server must determine whether the user already claimed it.
+- Prevent duplicate claims through database constraints/transactions.
+- Show countdown or next available date when appropriate.
+
+Example:
+
+🎁 Daily Reward
+
+Day 1 → +100
+Day 2 → +150
+Day 3 → +200
+Day 4 → +250
+Day 5 → +300
+Day 6 → +400
+Day 7 → +500
+
+The reward schedule must be configurable from the admin panel.
+
+5. TASK SYSTEM
+
+Create a complete task system.
+
+Task fields:
+
+- id
+- title
+- description
+- category
+- reward_points
+- target_url
+- verification_type
+- max_completions
+- start_date
+- end_date
+- status
+- sponsor_name
+- created_at
+
+Task categories:
+
+- Telegram
+- Website
+- Social
+- Sponsored
+- Affiliate
+- Daily
+
+Task states:
+
+- available
+- started
+- pending
+- completed
+- rejected
+- expired
+
+Users must NOT receive points simply by clicking a button.
+
+Create server-side verification.
+
+Support verification methods such as:
+
+- Telegram channel membership where technically available
+- callback/API verification
+- unique task token
+- admin approval
+- sponsor callback
+- server-side completion record
+
+For tasks that cannot be automatically verified, use “Pending verification” and allow admin review.
+
+6. REFERRAL SYSTEM
+
+Create a real referral system.
+
+Every user gets a unique referral code.
+
+Telegram referral format:
+
+https://t.me/YOUR_BOT_USERNAME?start=REFERRAL_CODE
+
+When a new genuine user joins through the referral:
+
+- store referrer
+- store referred user
+- prevent self-referrals
+- prevent duplicate referral rewards
+- prevent referral manipulation
+- reward only after the referred user meets configurable qualification criteria
+
+Admin can configure:
+
+- referral reward
+- qualification requirement
+- maximum referral rewards
+- referral campaign dates
+
+Show:
+
+Your Referral Link
+[Copy Link]
+[Share]
+
+Total Referrals
+Active Referrals
+Referral Earnings
+
+7. LEADERBOARD
+
+Create:
+
+- Daily leaderboard
+- Weekly leaderboard
+- Monthly leaderboard
+- All-time leaderboard
+
+Show:
+
+Rank
+Avatar
+Username
+Points
+
+Highlight the current user's rank.
+
+Do not expose sensitive personal information.
+
+8. WALLET / REWARDS
+
+Create a points wallet.
+
+Show:
+
+- Current balance
+- Lifetime earned
+- Lifetime redeemed
+- Pending withdrawals
+- Transaction history
+
+Create a rewards catalog.
+
+Example:
+
+1000 Points → Reward A
+5000 Points → Reward B
+10000 Points → Reward C
+
+Do NOT imply that points are automatically equivalent to cash.
+
+Admin must be able to configure reward items.
+
+9. WITHDRAWAL SYSTEM
+
+Create a secure withdrawal request system.
+
+Fields:
+
+- user_id
+- points
+- reward_id
+- payment_method
+- account_details
+- status
+- admin_note
+- created_at
+- processed_at
+
+Statuses:
+
+- pending
+- approved
+- processing
+- paid
+- rejected
+- cancelled
+
+Payment methods can initially include:
+
+- Easypaisa
+- JazzCash
+- Bank Transfer
+
+Important:
+
+- Never display private payment information publicly.
+- Encrypt or securely protect sensitive payment details where appropriate.
+- Admin approval required.
+- Add minimum withdrawal threshold.
+- Add daily/monthly limits.
+- Keep a complete audit trail.
+
+10. PROFILE
+
+Profile page:
+
+- Telegram profile photo
+- Name
+- Username
+- User ID (only where appropriate)
+- Member since
+- Points
+- Referral count
+- Tasks completed
+- Account status
+
+Settings:
+
+- Language
+- Notifications
+- Terms
+- Privacy Policy
+- Support
+
+11. ADMIN PANEL
+
+Create a secure separate admin dashboard.
+
+Admin pages:
+
+Dashboard
+Users
+Tasks
+Task Verification
+Referrals
+Transactions
+Rewards
+Withdrawals
+Sponsors
+Reports
+Settings
+Admins
+Audit Logs
+
+Dashboard statistics:
+
+- Total users
+- Active users
+- New users today
+- Tasks completed
+- Points issued
+- Points redeemed
+- Pending withdrawals
+- Revenue
+- Sponsor campaigns
+
+Admin task creation form:
+
+Title
+Description
+Reward
+Category
+URL
+Verification method
+Start date
+End date
+Maximum completions
+Status
+
+Admin must be able to:
+
+- create
+- edit
+- pause
+- delete/archive
+- verify
+- reject
+- adjust rewards with reason
+
+Every sensitive admin action must create an audit log.
+
+12. DATABASE
+
+Create MySQL migrations/schema for:
+
+users
+admins
+tasks
+task_completions
+referrals
+points_transactions
+daily_rewards
+rewards
+withdrawals
+sponsors
+campaigns
+notifications
+audit_logs
+settings
+
+Use:
+
+- primary keys
+- foreign keys
+- indexes
+- unique constraints
+- created_at
+- updated_at
+
+Use DECIMAL for monetary values.
+
+Never store passwords in plaintext.
+
+Use password_hash/password_verify for optional password authentication.
+
+13. API STRUCTURE
+
+Create secure PHP API endpoints:
+
+/api/auth/telegram.php
+/api/user/profile.php
+/api/user/balance.php
+/api/tasks/list.php
+/api/tasks/start.php
+/api/tasks/complete.php
+/api/rewards/daily.php
+/api/referrals/info.php
+/api/leaderboard.php
+/api/wallet/transactions.php
+/api/withdrawals/create.php
+/api/notifications.php
+
+Admin:
+
+/admin/api/users.php
+/admin/api/tasks.php
+/admin/api/withdrawals.php
+/admin/api/transactions.php
+/admin/api/reports.php
+
+Use JSON responses:
+
+{
+"success": true,
+"message": "...",
+"data": {}
+}
+
+Return proper HTTP status codes.
+
+14. SECURITY
+
+Implement:
+
+- Telegram initData server-side validation
+- PDO prepared statements
+- CSRF protection where applicable
+- authentication middleware
+- authorization middleware
+- admin role checking
+- rate limiting
+- request validation
+- output escaping
+- secure headers
+- HTTPS-only production configuration
+- duplicate request protection
+- database transactions
+- audit logs
+- anti-self-referral
+- anti-double-task-reward
+- withdrawal fraud checks
+
+Never put:
+
+- database passwords
+- Telegram bot token
+- secret keys
+- payment credentials
+
+inside frontend JavaScript.
+
+Use environment variables/configuration outside the public web root.
+
+15. TELEGRAM BOT
+
+Create Telegram Bot integration.
+
+Bot commands:
+
+/start
+/help
+/profile
+/tasks
+/balance
+/referral
+/leaderboard
+/support
+
+/start should:
+
+- detect referral parameter
+- create/find user
+- save referral attribution
+- show welcome message
+- show “Open TaskEarn PK” Mini App button
+
+Use Telegram Bot API through secure PHP server-side requests.
+
+Do not expose the bot token.
+
+16. TELEGRAM MINI APP
+
+Make the same PWA usable inside Telegram as a Mini App.
+
+Create:
+
+Home
+Tasks
+Friends
+Leaderboard
+Profile
+
+Use Telegram theme colors where appropriate.
+
+Support:
+
+Telegram user name
+Telegram avatar
+Telegram Back Button
+Telegram Main Button where useful
+Telegram haptic feedback where supported
+
+Make sure the app remains usable as a normal standalone PWA outside Telegram.
+
+17. PWA
+
+Create:
+
+manifest.json
+service-worker.js
+
+Manifest:
+
+name: TaskEarn PK
+short_name: TaskEarn
+display: standalone
+start_url: /
+theme_color
+background_color
+icons
+
+Create proper 192x192 and 512x512 icons.
+
+Add an “Install App” prompt/button where supported.
+
+Never cache private API responses or sensitive account information in the service worker.
+
+18. UI DESIGN
+
+Design should be:
+
+- modern
+- clean
+- professional
+- Pakistan-focused
+- mobile-first
+- fast
+- lightweight
+
+Main color scheme:
+
+dark navy + blue + white
+
+Use cards with rounded corners.
+
+Bottom navigation:
+
+🏠 Home
+📋 Tasks
+👥 Friends
+🏆 Ranks
+👤 Profile
+
+The app should look like a real fintech/rewards product, but clearly state that points are platform rewards and their redemption depends on available campaigns/rewards.
+
+19. NOTIFICATIONS
+
+Create notification system for:
+
+- Daily reward available
+- Task approved
+- Task rejected
+- Referral joined
+- Withdrawal approved
+- Withdrawal rejected
+- New sponsored task
+
+Telegram bot can send notifications when the user has authorized/started the bot and Telegram allows the notification.
+
+20. SPONSOR SYSTEM
+
+Create a sponsor/campaign model.
+
+Sponsors can submit:
+
+- campaign title
+- budget
+- task type
+- target URL
+- reward per completion
+- maximum users
+
+Admin approves campaign.
+
+Track:
+
+budget
+spent
+remaining
+completions
+revenue
+user rewards
+platform margin
+
+Do not allow campaign spending to exceed available budget.
+
+21. REVENUE MODEL
+
+Implement configurable revenue tracking for:
+
+1. Sponsored tasks
+2. Affiliate campaigns
+3. Premium features
+4. Promotional placements
+
+Create revenue records.
+
+Show admin:
+
+Gross Revenue
+User Rewards
+Platform Revenue
+Pending Sponsor Payments
+
+Never fabricate revenue numbers.
+
+22. SUPPORT
+
+Create support page:
+
+FAQ
+Contact Support
+Report Task
+Report Payment Problem
+
+Allow users to create support tickets.
+
+Admin can reply/change ticket status.
+
+23. DEMO DATA
+
+During development, seed the database with sample:
+
+- users
+- tasks
+- leaderboard entries
+- rewards
+
+Clearly label demo records and make them easy to remove before production.
+
+24. FILE STRUCTURE
+
+Generate a clean project:
+
+taskearn-pk/
+├── public/
+│   ├── index.php
+│   ├── manifest.json
+│   ├── service-worker.js
+│   ├── assets/
+│   │   ├── css/
+│   │   ├── js/
+│   │   └── icons/
+│
+├── api/
+│   ├── auth/
+│   ├── user/
+│   ├── tasks/
+│   ├── rewards/
+│   ├── referrals/
+│   ├── leaderboard/
+│   └── withdrawals/
+│
+├── admin/
+│
+├── bot/
+│
+├── config/
+│
+├── database/
+│   ├── migrations/
+│   └── seed/
+│
+├── storage/
+│
+├── .env.example
+└── README.md
+
+25. README
+
+Provide complete setup instructions:
+
+1. Create MySQL database
+2. Import migrations
+3. Configure environment variables
+4. Add Telegram bot token
+5. Set Telegram Mini App URL
+6. Configure HTTPS
+7. Configure webhook
+8. Start PHP server
+9. Test PWA
+10. Test Telegram Mini App
+11. Create first admin
+12. Create first task
+13. Test reward flow
+14. Test withdrawal flow
+
+Include production deployment instructions for standard PHP hosting/cPanel.
+
+26. IMPORTANT IMPLEMENTATION RULE
+
+Do not only generate the frontend.
+
+Generate a functional full-stack foundation where:
+
+PWA
+↓
+JavaScript
+↓
+PHP API
+↓
+MySQL
+↓
+Admin Panel
+
+All important actions must go through the backend.
+
+The first release must be fully testable with demo data and must have clear placeholders/configuration for Telegram credentials and payment/reward providers.
+
+Build the application incrementally and provide the complete source code for every required file.

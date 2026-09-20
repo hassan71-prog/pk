@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "TaskEarn PK",
+      "hasCanvas": false,
+      "bodyTextLen": 44,
+      "bodyTextHash": "9c058e54107d9dc5bbc92c02a1e470462a9df9bd8439bf6f1fa162ddbcd7f878",
+      "bodyTextPrefix": "TaskEarn PK Home Tasks Friends Ranks Profile",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "TaskEarn PK",
+      "hasCanvas": false,
+      "bodyTextLen": 44,
+      "bodyTextHash": "9c058e54107d9dc5bbc92c02a1e470462a9df9bd8439bf6f1fa162ddbcd7f878",
+      "bodyTextPrefix": "TaskEarn PK Home Tasks Friends Ranks Profile",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
