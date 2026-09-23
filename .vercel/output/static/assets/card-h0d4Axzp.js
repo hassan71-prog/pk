@@ -1,1 +1,0 @@
-import{r as e}from"./useRouter-Dp_HiUG-.js";import{n as t}from"./logo-88TfKTWv.js";var n=e();function r({className:e,...r}){return(0,n.jsx)(`div`,{className:t(`rounded-xl border border-border bg-surface p-4`,e),...r})}export{r as t};

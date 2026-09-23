@@ -1,1 +1,0 @@
-var e={daily_reward:`Daily reward`,task_reward:`Task reward`,referral_reward:`Referral`,bonus:`Bonus`,admin_adjustment:`Admin adjustment`,withdrawal:`Redemption`,reversal:`Reversal`};export{e as t};
