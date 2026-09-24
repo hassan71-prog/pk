@@ -30,7 +30,12 @@ function TasksPage() {
     queryFn: () => listTasks({ data: identityPayload(user) }),
   });
 
-  if (isPending) return <AppShell title="Tasks"><Skeleton className="h-40 rounded-xl" /></AppShell>;
+  if (isPending)
+    return (
+      <AppShell title="Tasks">
+        <Skeleton className="h-40 rounded-xl" />
+      </AppShell>
+    );
   if (!user) return <RedirectToSignIn />;
 
   const list = (tasks.data ?? []).filter((t) => (filter === "all" ? true : t.category === filter));
@@ -38,8 +43,8 @@ function TasksPage() {
   return (
     <AppShell title="Tasks" points={dash.data?.profile.pointsBalance} unread={dash.data?.unread}>
       <p className="text-sm text-muted">
-        Points are only added after server-side verification. Starting a task does not credit a
-        reward.
+        Task open karein, complete karein, phir points claim karein. Admin naye tasks add karta
+        rehta hai.
       </p>
       <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
         {FILTERS.map((f) => (
@@ -57,7 +62,9 @@ function TasksPage() {
         {tasks.isPending ? (
           <Skeleton className="h-24 rounded-xl" />
         ) : list.length === 0 ? (
-          <Card className="text-sm text-muted">No tasks in this category.</Card>
+          <Card className="text-sm text-muted">
+            Abhi koi task nahi. Admin panel se tasks add hone ke baad yahan dikhenge.
+          </Card>
         ) : (
           list.map((t) => (
             <Link key={t.id} to="/tasks/$taskId" params={{ taskId: String(t.id) }} className="block">
@@ -68,11 +75,12 @@ function TasksPage() {
                     <p className="mt-1 text-xs text-muted line-clamp-2">{t.description}</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <Badge>{t.category}</Badge>
-                      <Badge tone={stateTone(t.userState)}>{t.userState}</Badge>
-                      {t.isDemo ? <Badge>Sample</Badge> : null}
+                      <Badge tone={stateTone(t.userState)}>{labelState(t.userState)}</Badge>
                     </div>
                   </div>
-                  <p className="text-sm font-semibold text-primary tabular">+{formatPoints(t.rewardPoints)}</p>
+                  <p className="text-sm font-semibold text-primary tabular">
+                    +{formatPoints(t.rewardPoints)}
+                  </p>
                 </div>
               </Card>
             </Link>
@@ -81,6 +89,14 @@ function TasksPage() {
       </div>
     </AppShell>
   );
+}
+
+function labelState(s: string) {
+  if (s === "available") return "open";
+  if (s === "started") return "in progress";
+  if (s === "completed") return "done";
+  if (s === "pending") return "review";
+  return s;
 }
 
 function stateTone(s: string): "muted" | "primary" | "success" | "warning" | "danger" {

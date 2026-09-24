@@ -203,7 +203,9 @@ async function loadTasks(sql: Sql, userId: string, featuredOnly = false): Promis
       token: t.uc_token,
     };
   });
-  return featuredOnly ? mapped.filter((t) => t.isFeatured) : mapped;
+  // Hide demo/sample tasks from users — admin creates real tasks
+  const real = mapped.filter((t) => !t.isDemo);
+  return featuredOnly ? real.filter((t) => t.isFeatured) : real;
 }
 
 export const listTasks = createServerFn({ method: "POST" })
@@ -533,14 +535,14 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       data.period === "all"
         ? `select user_id, display_name, username, avatar_url, lifetime_earned as points, is_demo
            from app_profiles
-           where status = 'active' and lifetime_earned > 0
+           where status = 'active' and is_demo = false and lifetime_earned > 0
            order by lifetime_earned desc, created_at asc
            limit 50`
         : `select p.user_id, p.display_name, p.username, p.avatar_url,
                   coalesce(sum(tx.amount),0)::int as points, p.is_demo
            from app_profiles p
            join points_transactions tx on tx.user_id = p.user_id and tx.amount > 0 ${windowSql}
-           where p.status = 'active'
+           where p.status = 'active' and p.is_demo = false
            group by p.user_id, p.display_name, p.username, p.avatar_url, p.is_demo, p.created_at
            having coalesce(sum(tx.amount),0) > 0
            order by points desc, p.created_at asc

@@ -18,6 +18,14 @@ import { ExternalLink, CheckCircle2, Play } from "lucide-react";
 
 export const Route = createFileRoute("/tasks/$taskId")({ component: TaskDetail });
 
+function openLink(url: string) {
+  // User-gesture friendly open. Prefer new tab; fallback same window if blocked.
+  const w = window.open(url, "_blank", "noopener,noreferrer");
+  if (!w || w.closed) {
+    window.location.href = url;
+  }
+}
+
 function TaskDetail() {
   const { taskId } = Route.useParams();
   const { user, isPending } = useCurrentUserState();
@@ -37,7 +45,6 @@ function TaskDetail() {
     queryFn: () => getDashboard({ data: {} }),
   });
 
-  // Live countdown for dwell time
   useEffect(() => {
     if (task.data?.userState !== "started") return;
     const id = setInterval(() => setNowTick(Date.now()), 500);
@@ -54,24 +61,16 @@ function TaskDetail() {
     task.data?.verificationType === "visit_token" ||
     task.data?.verificationType === "unique_token";
 
-  const isSocial =
-    task.data?.category === "social" ||
-    task.data?.category === "telegram" ||
-    /youtube|youtu\.be|subscribe/i.test(
-      `${task.data?.title ?? ""} ${task.data?.targetUrl ?? ""} ${task.data?.description ?? ""}`,
-    );
-
   const start = useMutation({
     mutationFn: () => startTask({ data: { taskId: Number(taskId) } }),
     onSuccess: async () => {
       haptic();
-      toast.success(
-        isSocial
-          ? "Link opened. Subscribe / complete the action, then come back."
-          : "Task started. Complete the action, then claim points.",
-      );
-      if (task.data?.targetUrl) {
-        window.open(task.data.targetUrl, "_blank", "noopener,noreferrer");
+      const url = task.data?.targetUrl;
+      if (url) {
+        openLink(url);
+        toast.success("Link open ho gaya. Action complete karke wapas aao.");
+      } else {
+        toast.success("Task start ho gaya.");
       }
       await qc.invalidateQueries({ queryKey: ["task", taskId] });
       await qc.invalidateQueries({ queryKey: ["tasks"] });
@@ -91,8 +90,8 @@ function TaskDetail() {
       }),
     onSuccess: (res) => {
       haptic("medium");
-      if (res.status === "pending") toast.success("Submitted for review. Points after approval.");
-      else toast.success(`Done! +${res.points} points credited.`);
+      if (res.status === "pending") toast.success("Review ke liye bhej diya. Approval ke baad points.");
+      else toast.success(`+${res.points} points mil gaye!`);
       void qc.invalidateQueries();
     },
     onError: (err) => toast.error(errorMessage(err)),
@@ -116,9 +115,9 @@ function TaskDetail() {
   if (!task.data) {
     return (
       <AppShell title="Task">
-        <p className="text-sm text-muted">Task not found.</p>
+        <p className="text-sm text-muted">Task nahi mila.</p>
         <Link to="/tasks" className="mt-3 inline-block text-sm text-primary">
-          Back to tasks
+          Wapas tasks
         </Link>
       </AppShell>
     );
@@ -132,8 +131,7 @@ function TaskDetail() {
     <AppShell title="Task" points={dash.data?.profile.pointsBalance}>
       <div className="flex flex-wrap gap-1.5">
         <Badge>{t.category}</Badge>
-        <Badge tone="primary">{t.verificationType.replace(/_/g, " ")}</Badge>
-        {t.isDemo ? <Badge>Sample</Badge> : null}
+        {t.isFeatured ? <Badge tone="primary">featured</Badge> : null}
       </div>
 
       <h1 className="mt-3 font-display text-2xl font-semibold tracking-tight">{t.title}</h1>
@@ -147,55 +145,37 @@ function TaskDetail() {
         {t.sponsorName ? <p className="text-xs text-subtle">{t.sponsorName}</p> : null}
       </Card>
 
-      {/* Step guide for social / youtube style */}
-      {isSocial || isAutoVerify ? (
-        <Card className="mt-4 space-y-2 text-sm">
-          <p className="font-medium">How it works</p>
-          <ol className="list-decimal space-y-1 pl-4 text-muted">
-            <li>Tap Start — the link opens automatically</li>
-            <li>{isSocial ? "Subscribe / follow / complete the action on that page" : "Visit the page and wait a few seconds"}</li>
-            <li>Come back here and claim your points</li>
-          </ol>
-          <p className="text-xs text-subtle">
-            Points are credited by the server after the minimum wait time. We cannot read your
-            YouTube account — complete the action honestly.
-          </p>
-        </Card>
-      ) : (
-        <p className="mt-3 text-xs leading-relaxed text-subtle">
-          Clicking a button does not add points. The server checks the task token and dwell time
-          (or admin review) before writing the ledger.
-        </p>
-      )}
+      <Card className="mt-4 space-y-1 text-sm">
+        <p className="font-medium">Steps</p>
+        <p className="text-muted">1. Start dabao — link khud open hoga</p>
+        <p className="text-muted">2. YouTube / site pe action complete karo (subscribe etc.)</p>
+        <p className="text-muted">3. Wapas aao aur points claim karo</p>
+      </Card>
 
       {t.userState === "completed" ? (
         <Card className="mt-4 flex items-center gap-2 text-sm text-success">
           <CheckCircle2 className="size-5 shrink-0" />
-          Task completed — points already credited.
+          Complete — points mil chuke hain.
         </Card>
       ) : t.userState === "pending" ? (
-        <Card className="mt-4 text-sm text-warning">Submitted — waiting for admin review.</Card>
+        <Card className="mt-4 text-sm text-warning">Admin review pending.</Card>
       ) : t.userState === "rejected" ? (
-        <Card className="mt-4 text-sm text-danger">Previous submission was rejected. Contact support if needed.</Card>
+        <Card className="mt-4 text-sm text-danger">Reject ho gaya. Support se contact karo.</Card>
       ) : (
         <div className="mt-4 space-y-3">
           {t.userState === "available" ? (
             <Button className="w-full" disabled={start.isPending} onClick={() => start.mutate()}>
               <Play className="size-4" />
-              {start.isPending ? "Starting…" : t.targetUrl ? "Start & open link" : "Start task"}
+              {start.isPending ? "Opening…" : t.targetUrl ? "Start & open link" : "Start task"}
             </Button>
           ) : null}
 
           {t.userState === "started" ? (
             <>
               {t.targetUrl ? (
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  onClick={() => window.open(t.targetUrl!, "_blank", "noopener,noreferrer")}
-                >
+                <Button variant="secondary" className="w-full" onClick={() => openLink(t.targetUrl!)}>
                   <ExternalLink className="size-4" />
-                  Open link again
+                  Link dobara open karo
                 </Button>
               ) : null}
 
@@ -203,15 +183,11 @@ function TaskDetail() {
                 <Card className="text-center">
                   {remaining > 0 ? (
                     <>
-                      <p className="text-xs text-muted">Complete the action, then wait</p>
+                      <p className="text-xs text-muted">Action complete karke wait karo</p>
                       <p className="mt-1 text-3xl font-semibold tabular text-primary">{remaining}s</p>
-                      <p className="mt-1 text-xs text-subtle">Claim button unlocks after this timer</p>
                     </>
                   ) : (
-                    <>
-                      <p className="text-sm font-medium text-success">Ready to claim</p>
-                      <p className="text-xs text-muted">Timer done — claim your points below</p>
-                    </>
+                    <p className="text-sm font-medium text-success">Ab points claim kar sakte ho</p>
                   )}
                 </Card>
               ) : null}
@@ -224,7 +200,7 @@ function TaskDetail() {
                     onChange={(e) => setProofUrl(e.target.value)}
                   />
                   <Textarea
-                    placeholder="What did you complete?"
+                    placeholder="Kya complete kiya?"
                     value={proofNote}
                     onChange={(e) => setProofNote(e.target.value)}
                   />
@@ -242,7 +218,7 @@ function TaskDetail() {
                     ? `Wait ${remaining}s…`
                     : isAutoVerify
                       ? `Claim +${formatPoints(t.rewardPoints)} points`
-                      : "Submit for verification"}
+                      : "Submit for review"}
               </Button>
             </>
           ) : null}
