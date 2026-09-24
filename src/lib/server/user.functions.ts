@@ -693,6 +693,18 @@ export const createWithdrawal = createServerFn({ method: "POST" })
       rateLimit(context.userId, "withdraw", 6, 60_000);
       const profile = await ensureProfile(context.userId);
       const sql = await getSql();
+
+      // Check whether withdrawals are open
+      const withdrawalsOpen = await getSettingInt(
+        sql,
+        "withdrawals_open",
+        1,
+      );
+
+      if (withdrawalsOpen !== 1) {
+        throw new AppError("Withdrawals are currently closed.");
+      }
+
       const minPts = await getSettingInt(sql, "min_withdrawal_points", 1000);
       const dailyLimit = await getSettingInt(sql, "daily_withdrawal_limit_points", 5000);
       const monthlyLimit = await getSettingInt(sql, "monthly_withdrawal_limit_points", 20000);

@@ -5,13 +5,32 @@ import { AdminShell } from "@/components/admin-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { adminListWithdrawals, adminUpdateWithdrawal } from "@/lib/server/admin.functions";
+import {
+  adminGetWithdrawalStatus,
+  adminListWithdrawals,
+  adminSetWithdrawalStatus,
+  adminUpdateWithdrawal,
+} from "@/lib/server/admin.functions";
 import { errorMessage, formatPoints, timeAgo } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/withdrawals")({ component: Page });
 
 function Page() {
   const qc = useQueryClient();
+
+const withdrawalStatus = useQuery({
+  queryKey: ["admin-withdrawal-status"],
+  queryFn: () => adminGetWithdrawalStatus(),
+});
+const toggleWithdrawal = useMutation({
+  mutationFn: (open: boolean) =>
+    adminSetWithdrawalStatus({ data: { open } }),
+  onSuccess: () => {
+    toast.success("Withdrawal setting updated");
+    void qc.invalidateQueries({ queryKey: ["admin-withdrawal-status"] });
+  },
+  onError: (e) => toast.error(errorMessage(e)),
+});
   const list = useQuery({ queryKey: ["admin-wd"], queryFn: () => adminListWithdrawals() });
   const upd = useMutation({
     mutationFn: (p: { id: number; status: "approved" | "processing" | "paid" | "rejected" }) =>
@@ -24,6 +43,27 @@ function Page() {
   });
   return (
     <AdminShell title="Withdrawals">
+      <div className="mb-4 flex items-center justify-between rounded-lg border p-3">
+  <div>
+    <p className="font-medium">Withdrawals</p>
+    <p className="text-sm text-muted">
+      {withdrawalStatus.data?.open
+        ? "Users can submit withdrawal requests."
+        : "Users cannot submit withdrawal requests."}
+    </p>
+  </div>
+
+  <Button
+    size="sm"
+    variant={withdrawalStatus.data?.open ? "danger" : "default"}
+    disabled={toggleWithdrawal.isPending}
+    onClick={() =>
+      toggleWithdrawal.mutate(!withdrawalStatus.data?.open)
+    }
+  >
+    {withdrawalStatus.data?.open ? "Close Withdrawals" : "Open Withdrawals"}
+  </Button>
+</div>
       <p className="mb-3 text-sm text-muted">
         Account details are visible here only. They never appear on public leaderboards.
       </p>

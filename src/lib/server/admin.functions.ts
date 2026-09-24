@@ -835,3 +835,53 @@ export const adminPurgeDemo = createServerFn({ method: "POST" })
     await audit(sql, context.userId, "demo.purge", "system", null, "Removed is_demo records");
     return { ok: true };
   });
+  export const adminGetWithdrawalStatus = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+
+    const rows = await sql<{ value: string }>`
+      select value
+      from settings
+      where key = 'withdrawals_open'
+      limit 1
+    `;
+
+    return {
+      open: (rows[0]?.value ?? "1") === "1",
+    };
+  });
+
+export const adminSetWithdrawalStatus = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      open: z.boolean(),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+
+    await sql`
+      insert into settings (key, value)
+      values ('withdrawals_open', ${data.open ? "1" : "0"})
+      on conflict (key)
+      do update set value = excluded.value
+    `;
+
+    await audit(
+      sql,
+      context.userId,
+      "withdrawals.toggle",
+      "settings",
+      "withdrawals_open",
+      data.open ? "open" : "closed",
+    );
+
+    return {
+      ok: true,
+      open: data.open,
+    };
+  });
