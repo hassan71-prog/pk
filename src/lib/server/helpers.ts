@@ -289,19 +289,16 @@ export async function ensureProfile(
     code = newReferralCode();
   }
 
-  const adminCount = await sql<{ n: number }>`
-    select count(*)::int as n from app_profiles where is_admin = true and is_demo = false
-  `;
-  const isAdmin = Number(adminCount[0]?.n ?? 0) === 0;
+  
 
-  await sql`
-    insert into app_profiles (
-      user_id, display_name, username, avatar_url, referral_code, is_admin
-    ) values (
-      ${userId}, ${name}, ${username}, ${identity?.image ?? null}, ${code}, ${isAdmin}
-    )
-    on conflict (user_id) do nothing
-  `;
+ await sql`
+  insert into app_profiles (
+    user_id, display_name, username, avatar_url, referral_code
+  ) values (
+    ${userId}, ${name}, ${username}, ${identity?.image ?? null}, ${code}
+  )
+  on conflict (user_id) do nothing
+`;
 
   if (referralCode) {
     try {
