@@ -11,17 +11,53 @@ import { errorMessage } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/settings")({ component: Page });
 
-const KEYS = [
-  "daily_schedule",
-  "referral_reward",
-  "referral_qualify_tasks",
-  "max_referral_rewards",
-  "min_withdrawal_points",
-  "daily_withdrawal_limit_points",
-  "monthly_withdrawal_limit_points",
-  "bot_username",
-  "support_email",
-] as const;
+const SETTINGS: { key: string; label: string; hint: string }[] = [
+  {
+    key: "daily_schedule",
+    label: "Daily claim schedule",
+    hint: "Cron-like or time window for daily rewards",
+  },
+  {
+    key: "referral_reward",
+    label: "Referral reward (points)",
+    hint: "Points given when a referral qualifies",
+  },
+  {
+    key: "referral_qualify_tasks",
+    label: "Tasks to qualify referral",
+    hint: "How many tasks the invitee must complete",
+  },
+  {
+    key: "max_referral_rewards",
+    label: "Max referral rewards per user",
+    hint: "Cap on referral bonuses one user can earn",
+  },
+  {
+    key: "min_withdrawal_points",
+    label: "Minimum withdrawal (points)",
+    hint: "Lowest amount users can redeem",
+  },
+  {
+    key: "daily_withdrawal_limit_points",
+    label: "Daily withdrawal limit (points)",
+    hint: "Max points one user can withdraw per day",
+  },
+  {
+    key: "monthly_withdrawal_limit_points",
+    label: "Monthly withdrawal limit (points)",
+    hint: "Max points one user can withdraw per month",
+  },
+  {
+    key: "bot_username",
+    label: "Telegram bot username",
+    hint: "Without @ — used in share links",
+  },
+  {
+    key: "support_email",
+    label: "Support email",
+    hint: "Shown on legal / support pages",
+  },
+];
 
 function Page() {
   const qc = useQueryClient();
@@ -30,35 +66,50 @@ function Page() {
   useEffect(() => {
     if (q.data) setForm(q.data);
   }, [q.data]);
+
   const save = useMutation({
     mutationFn: () => adminSaveSettings({ data: { entries: form } }),
-    onSuccess: () => toast.success("Settings saved"),
+    onSuccess: () => {
+      toast.success("Settings saved");
+      void qc.invalidateQueries({ queryKey: ["admin-settings"] });
+    },
     onError: (e) => toast.error(errorMessage(e)),
   });
+
   const purge = useMutation({
     mutationFn: () => adminPurgeDemo(),
     onSuccess: () => {
       toast.success("Demo records removed");
       void qc.invalidateQueries();
     },
+    onError: (e) => toast.error(errorMessage(e)),
   });
+
   return (
     <AdminShell title="Settings">
-      <div className="max-w-lg space-y-3">
-        {KEYS.map((k) => (
-          <label key={k} className="block">
-            <span className="text-xs text-muted">{k}</span>
-            <Input className="mt-1" value={form[k] ?? ""} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
+      <div className="max-w-lg space-y-4">
+        {SETTINGS.map((s) => (
+          <label key={s.key} className="block">
+            <span className="text-sm font-medium">{s.label}</span>
+            <p className="text-xs text-muted">{s.hint}</p>
+            <Input
+              className="mt-1"
+              value={form[s.key] ?? ""}
+              onChange={(e) => setForm({ ...form, [s.key]: e.target.value })}
+            />
           </label>
         ))}
-        <Button onClick={() => save.mutate()}>Save settings</Button>
+        <Button onClick={() => save.mutate()} disabled={save.isPending}>
+          Save settings
+        </Button>
       </div>
+
       <Card className="mt-8 max-w-lg">
         <p className="text-sm font-medium">Remove sample records</p>
         <p className="mt-1 text-xs text-muted">
           Deletes rows flagged is_demo (sample leaderboard faces, sample tasks, sample sponsors).
         </p>
-        <Button className="mt-3" variant="danger" onClick={() => purge.mutate()}>
+        <Button className="mt-3" variant="danger" onClick={() => purge.mutate()} disabled={purge.isPending}>
           Purge demo data
         </Button>
       </Card>

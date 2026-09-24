@@ -14,8 +14,10 @@ import {
   BarChart3,
   ListTodo,
   ArrowLeftRight,
+  Menu,
+  X,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +40,8 @@ const LINKS = [
 
 export function AdminShell({ children, title }: { children: ReactNode; title: string }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <div className="min-h-dvh bg-bg text-fg">
       <div className="mx-auto flex max-w-6xl">
@@ -67,17 +71,59 @@ export function AdminShell({ children, title }: { children: ReactNode; title: st
             Back to app
           </Link>
         </aside>
+
         <div className="min-w-0 flex-1">
           <header className="sticky top-0 z-10 border-b border-border bg-bg/90 px-4 py-3 backdrop-blur md:px-6">
-            <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
-            <div className="mt-2 flex gap-2 overflow-x-auto pb-1 md:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
+              <button
+                type="button"
+                className="rounded-md p-2 text-muted hover:bg-surface md:hidden"
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-label="Menu"
+              >
+                {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+              </button>
+            </div>
+
+            {menuOpen ? (
+              <nav className="mt-3 grid grid-cols-2 gap-1 pb-2 md:hidden">
+                {LINKS.map((l) => {
+                  const active = l.to === "/admin" ? pathname === "/admin" : pathname.startsWith(l.to);
+                  return (
+                    <Link
+                      key={l.to}
+                      to={l.to}
+                      onClick={() => setMenuOpen(false)}
+                      className={cn(
+                        "rounded-md px-3 py-2 text-xs",
+                        active ? "bg-primary text-primary-fg" : "bg-surface text-muted",
+                      )}
+                    >
+                      {l.label}
+                    </Link>
+                  );
+                })}
+                <Link
+                  to="/"
+                  onClick={() => setMenuOpen(false)}
+                  className="col-span-2 rounded-md px-3 py-2 text-xs text-primary"
+                >
+                  Back to app
+                </Link>
+              </nav>
+            ) : null}
+
+            <div className="mt-2 hidden gap-2 overflow-x-auto pb-1 sm:flex md:hidden">
               {LINKS.map((l) => (
                 <Link
                   key={l.to}
                   to={l.to}
                   className={cn(
                     "rounded-full px-3 py-1 text-xs whitespace-nowrap",
-                    pathname === l.to ? "bg-primary text-primary-fg" : "bg-surface text-muted",
+                    pathname === l.to || (l.to !== "/admin" && pathname.startsWith(l.to))
+                      ? "bg-primary text-primary-fg"
+                      : "bg-surface text-muted",
                   )}
                 >
                   {l.label}

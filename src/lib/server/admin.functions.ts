@@ -76,43 +76,134 @@ export const getAdminOverview = createServerFn({ method: "POST" })
 
 export const adminListUsers = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(z.object({ q: z.string().optional() }).optional())
+  .validator(
+    z
+      .object({
+        q: z.string().optional(),
+        status: z.enum(["all", "active", "suspended", "banned"]).optional(),
+        page: z.coerce.number().int().min(0).optional(),
+        pageSize: z.coerce.number().int().min(10).max(100).optional(),
+      })
+      .optional(),
+  )
   .handler(async ({ context, data }) => {
     await requireAdmin(context.userId);
     const sql = await getSql();
     const q = (data?.q ?? "").trim();
-    const rows = q
-      ? await sql`
-          select user_id, display_name, username, points_balance, lifetime_earned,
-                 tasks_completed, status, is_admin, is_demo, created_at, referral_code
-          from app_profiles
-          where display_name ilike ${"%" + q + "%"}
-             or username ilike ${"%" + q + "%"}
-             or user_id ilike ${"%" + q + "%"}
-             or referral_code ilike ${"%" + q + "%"}
-          order by created_at desc
-          limit 80
-        `
-      : await sql`
-          select user_id, display_name, username, points_balance, lifetime_earned,
-                 tasks_completed, status, is_admin, is_demo, created_at, referral_code
-          from app_profiles
-          order by is_demo asc, created_at desc
-          limit 80
-        `;
-    return rows.map((r) => ({
-      userId: String(r.user_id),
-      displayName: String(r.display_name),
-      username: (r.username as string | null) ?? null,
-      points: Number(r.points_balance),
-      earned: Number(r.lifetime_earned),
-      tasks: Number(r.tasks_completed),
-      status: String(r.status),
-      isAdmin: Boolean(r.is_admin),
-      isDemo: Boolean(r.is_demo),
-      createdAt: toIso(r.created_at),
-      referralCode: String(r.referral_code),
-    }));
+    const status = data?.status ?? "all";
+    const page = data?.page ?? 0;
+    const pageSize = data?.pageSize ?? 40;
+    const offset = page * pageSize;
+
+    const statusFilter =
+      status === "all" ? sql`` : sql`and status = ${status}`;
+
+    const searchFilter = q
+      ? sql`and (
+          display_name ilike ${"%" + q + "%"}
+          or username ilike ${"%" + q + "%"}
+          or user_id ilike ${"%" + q + "%"}
+          or referral_code ilike ${"%" + q + "%"}
+        )`
+      : sql``;
+
+    const countRows = await sql<{ n: number }>`
+      select count(*)::int as n from app_profiles
+      where is_demo = false ${statusFilter} ${searchFilter}
+    `;
+    const total = Number(countRows[0]?.n ?? 0);
+
+    const rows = await sql`
+      select user_id, display_name, username, points_balance, lifetime_earned,
+             tasks_completed, status, is_admin, is_demo, created_at, referral_code
+      from app_profiles
+      where is_demo = false ${statusFilter} ${searchFilter}
+      order by created_at desc
+      limit ${pageSize} offset ${offset}
+    `;
+
+    return {
+      total,
+      page,
+      pageSize,
+      users: rows.map((r) => ({
+        userId: String(r.user_id),
+        displayName: String(r.display_name),
+        username: (r.username as string | null) ?? null,
+        points: Number(r.points_balance),
+        earned: Number(r.lifetime_earned),
+        tasks: Number(r.tasks_completed),
+        status: String(r.status),
+        isAdmin: Boolean(r.is_admin),
+        isDemo: Boolean(r.is_demo),
+        createdAt: toIso(r.created_at),
+        referralCode: String(r.referral_code),
+      })),
+    };
+  });
+
+export const adminGetUserDetail = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(z.object({ userId: z.string() }))
+  .handler(async ({ context, data }) => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const profiles = await sql`
+      select user_id, display_name, username, points_balance, lifetime_earned, lifetime_redeemed,
+             tasks_completed, status, is_admin, is_demo, created_at, referral_code,
+             telegram_id, daily_streak, referred_by
+      from app_profiles where user_id = ${data.userId}
+    `;
+    const p = profiles[0];
+    if (!p) throw new AppError("User not found.");
+
+    const txs = await sql`
+      select id, type, amount, balance_after, note, created_at
+      from points_transactions where user_id = ${data.userId}
+      order by created_at desc limit 30
+    `;
+    const wds = await sql`
+      select id, points, payment_method, status, created_at
+      from withdrawals where user_id = ${data.userId}
+      order by created_at desc limit 15
+    `;
+    const refs = await sql`
+      select count(*)::int as n from app_profiles where referred_by = ${data.userId}
+    `;
+
+    return {
+      userId: String(p.user_id),
+      displayName: String(p.display_name),
+      username: (p.username as string | null) ?? null,
+      points: Number(p.points_balance),
+      earned: Number(p.lifetime_earned),
+      redeemed: Number(p.lifetime_redeemed),
+      tasks: Number(p.tasks_completed),
+      status: String(p.status),
+      isAdmin: Boolean(p.is_admin),
+      isDemo: Boolean(p.is_demo),
+      createdAt: toIso(p.created_at),
+      referralCode: String(p.referral_code),
+      telegramId: (p.telegram_id as string | null) ?? null,
+      dailyStreak: Number(p.daily_streak),
+      referredBy: (p.referred_by as string | null) ?? null,
+      referralCount: Number(refs[0]?.n ?? 0),
+      transactions: txs.map((t) => ({
+        id: Number(t.id),
+        type: String(t.type),
+        amount: Number(t.amount),
+        balanceAfter: Number(t.balance_after),
+        note: (t.note as string | null) ?? null,
+        createdAt: toIso(t.created_at),
+      })),
+      withdrawals: wds.map((w) => ({
+        id: Number(w.id),
+        points: Number(w.points),
+        paymentMethod: String(w.payment_method),
+        status: String(w.status),
+        createdAt: toIso(w.created_at),
+      })),
+    };
   });
 
 export const adminSetUserStatus = createServerFn({ method: "POST" })
@@ -473,17 +564,109 @@ export const adminUpdateWithdrawal = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const adminListTransactions = createServerFn({ method: "POST" })
+export const adminBulkUpdateWithdrawals = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .handler(async ({ context }) => {
+  .validator(
+    z.object({
+      ids: z.array(z.coerce.number()).min(1).max(50),
+      status: z.enum(["approved", "rejected"]),
+      note: z.string().max(300).optional(),
+    }),
+  )
+  .handler(async ({ context, data }) => {
     await requireAdmin(context.userId);
     const sql = await getSql();
+    let ok = 0;
+    let failed = 0;
+    for (const id of data.ids) {
+      try {
+        const cur = await sql<{
+          id: number;
+          user_id: string;
+          points: number;
+          status: string;
+          reward_id: number | null;
+        }>`select id, user_id, points, status, reward_id from withdrawals where id = ${id}`;
+        const w = cur[0];
+        if (!w || w.status !== "pending") {
+          failed += 1;
+          continue;
+        }
+        await sql`
+          update withdrawals
+          set status = ${data.status}, admin_note = ${data.note ?? null},
+              processed_at = now(), processed_by = ${context.userId}
+          where id = ${w.id}
+        `;
+        if (data.status === "rejected") {
+          await creditPoints(
+            sql,
+            w.user_id,
+            Number(w.points),
+            "reversal",
+            data.note || "Redemption rejected — points returned",
+            "withdrawal",
+            String(w.id),
+          );
+          if (w.reward_id) {
+            await sql`update rewards set stock = stock + 1 where id = ${w.reward_id} and stock is not null`;
+          }
+          await notify(
+            sql,
+            w.user_id,
+            "withdrawal_rejected",
+            "Redemption declined",
+            data.note || "Your redemption was declined and points were returned.",
+          );
+        } else {
+          await notify(
+            sql,
+            w.user_id,
+            "withdrawal_approved",
+            "Redemption approved",
+            "Your request was approved and is being processed.",
+          );
+        }
+        await audit(sql, context.userId, "withdrawal." + data.status, "withdrawal", String(w.id), data.note ?? "bulk");
+        ok += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    return { ok, failed };
+  });
+
+export const adminListTransactions = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z
+      .object({
+        q: z.string().optional(),
+        from: z.string().optional(),
+        to: z.string().optional(),
+      })
+      .optional(),
+  )
+  .handler(async ({ context, data }) => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const q = (data?.q ?? "").trim();
+    const from = data?.from?.trim() || null;
+    const to = data?.to?.trim() || null;
+
+    const searchFilter = q
+      ? sql`and (p.display_name ilike ${"%" + q + "%"} or t.note ilike ${"%" + q + "%"} or t.type ilike ${"%" + q + "%"})`
+      : sql``;
+    const fromFilter = from ? sql`and t.created_at >= ${from}::timestamptz` : sql``;
+    const toFilter = to ? sql`and t.created_at < (${to}::date + interval '1 day')` : sql``;
+
     const rows = await sql`
       select t.id, t.user_id, t.type, t.amount, t.balance_after, t.note, t.created_at, p.display_name
       from points_transactions t
       join app_profiles p on p.user_id = t.user_id
+      where 1=1 ${searchFilter} ${fromFilter} ${toFilter}
       order by t.created_at desc
-      limit 100
+      limit 150
     `;
     return rows.map((r) => ({
       id: Number(r.id),
