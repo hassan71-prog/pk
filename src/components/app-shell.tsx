@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Logo } from "@/components/logo";
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
 import { cn, formatPoints } from "@/lib/utils";
 
 const NAV = [
@@ -63,6 +64,7 @@ export function AppShell({
         </div>
       </header>
       <main className="flex-1 px-4 pt-4 pb-28">{children}</main>
+      <PwaInstallBanner />
       <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-lg border-t border-border bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm">
         <ul className="grid grid-cols-5">
           {NAV.map((item) => {
