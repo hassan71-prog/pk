@@ -13,39 +13,18 @@ import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { completeTask, getDashboard, getTask, startTask } from "@/lib/server/user.functions";
 import { haptic } from "@/lib/telegram";
-import { errorMessage, formatPoints } from "@/lib/utils";
+import { cn, errorMessage, formatPoints } from "@/lib/utils";
 import { ExternalLink, CheckCircle2, Play } from "lucide-react";
 
 export const Route = createFileRoute("/tasks/$taskId")({ component: TaskDetail });
 
-function normalizeUrl(url: string) {
+function normalizeUrl(url: string | null | undefined): string {
+  if (!url) return "";
   const href = url.trim();
   if (!href) return "";
   if (/^https?:\/\//i.test(href)) return href;
-  return "https://" + href;
-}
-
-function openLink(url: string) {
-  const href = normalizeUrl(url);
-  if (!href) return false;
-  // Prefer programmatic <a> click — more reliable on mobile WebViews
-  try {
-    const a = document.createElement("a");
-    a.href = href;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    return true;
-  } catch {
-    const w = window.open(href, "_blank", "noopener,noreferrer");
-    if (!w) {
-      window.location.assign(href);
-    }
-    return true;
-  }
+  // youtube.com/xxx without scheme
+  return "https://" + href.replace(/^\/\//, "");
 }
 
 function TaskDetail() {
@@ -87,23 +66,12 @@ function TaskDetail() {
     mutationFn: () => startTask({ data: { taskId: Number(taskId) } }),
     onSuccess: async () => {
       haptic();
-      toast.success("Task start — link open rakho, action complete karke claim karo.");
+      toast.success("Task start. Link open rakho, action complete karke claim karo.");
       await qc.invalidateQueries({ queryKey: ["task", taskId] });
       await qc.invalidateQueries({ queryKey: ["tasks"] });
     },
     onError: (err) => toast.error(errorMessage(err)),
   });
-
-  /** Open URL in the same user-gesture tick (avoids popup blockers after await). */
-  function handleStartAndOpen() {
-    const url = task.data?.targetUrl?.trim();
-    if (url) {
-      openLink(url);
-    } else {
-      toast.error("Is task mein koi link nahi. Admin se URL add karwayein.");
-    }
-    start.mutate();
-  }
 
   const submit = useMutation({
     mutationFn: () =>
@@ -151,8 +119,14 @@ function TaskDetail() {
   }
 
   const t = task.data;
+  const href = normalizeUrl(t.targetUrl);
   const needsProof =
     t.verificationType === "admin_approval" || t.verificationType === "telegram_membership";
+
+  function onStartClick() {
+    // Fire start in parallel; navigation is handled by real <a href>
+    if (!start.isPending) start.mutate();
+  }
 
   return (
     <AppShell title="Task" points={dash.data?.profile.pointsBalance}>
@@ -174,10 +148,17 @@ function TaskDetail() {
 
       <Card className="mt-4 space-y-1 text-sm">
         <p className="font-medium">Steps</p>
-        <p className="text-muted">1. Start dabao — link khud open hoga</p>
-        <p className="text-muted">2. YouTube / site pe action complete karo (subscribe etc.)</p>
+        <p className="text-muted">1. Neeche button se link open karo</p>
+        <p className="text-muted">2. Subscribe / action complete karo</p>
         <p className="text-muted">3. Wapas aao aur points claim karo</p>
       </Card>
+
+      {!href && t.userState !== "completed" ? (
+        <Card className="mt-3 border-danger/40 text-sm text-danger">
+          Is task mein Target URL nahi hai. Admin panel → Tasks → Edit → Target URL add karo
+          (example: https://youtube.com/@channel).
+        </Card>
+      ) : null}
 
       {t.userState === "completed" ? (
         <Card className="mt-4 flex items-center gap-2 text-sm text-success">
@@ -191,32 +172,49 @@ function TaskDetail() {
       ) : (
         <div className="mt-4 space-y-3">
           {t.userState === "available" ? (
-            <Button className="w-full" disabled={start.isPending} onClick={handleStartAndOpen}>
-              <Play className="size-4" />
-              {start.isPending ? "Opening…" : t.targetUrl ? "Start & open link" : "Start task"}
-            </Button>
+            href ? (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={onStartClick}
+                className={cn(
+                  "inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-fg active:scale-[0.98]",
+                  start.isPending && "opacity-70",
+                )}
+              >
+                <Play className="size-4" />
+                {start.isPending ? "Starting…" : "Start & open link"}
+              </a>
+            ) : (
+              <Button className="w-full" disabled={start.isPending} onClick={() => start.mutate()}>
+                <Play className="size-4" />
+                Start task (no link)
+              </Button>
+            )
           ) : null}
 
           {t.userState === "started" ? (
             <>
-              {t.targetUrl ? (
-                <>
-                  <Button variant="secondary" className="w-full" onClick={() => openLink(t.targetUrl!)}>
-                    <ExternalLink className="size-4" />
-                    Link dobara open karo
-                  </Button>
-                  <a
-                    href={/^https?:\/\//i.test(t.targetUrl) ? t.targetUrl : `https://${t.targetUrl}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block text-center text-xs text-primary break-all underline"
-                  >
-                    {t.targetUrl}
+              {href ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-surface-2 px-4 text-sm font-medium text-fg"
+                >
+                  <ExternalLink className="size-4" />
+                  Link dobara open karo
+                </a>
+              ) : null}
+
+              {href ? (
+                <p className="break-all text-center text-[11px] text-primary underline">
+                  <a href={href} target="_blank" rel="noopener noreferrer">
+                    {href}
                   </a>
-                </>
-              ) : (
-                <p className="text-center text-xs text-danger">Link missing — admin se URL set karwayein</p>
-              )}
+                </p>
+              ) : null}
 
               {isAutoVerify ? (
                 <Card className="text-center">

@@ -4,7 +4,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { Providers } from "@/components/providers";
 import appCss from "../styles.css?url";
 
-const APP_NAME = "TaskEarn PK";
+const APP_NAME = "Earn.pk";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -15,12 +15,14 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "TaskEarn PK is a Pakistan rewards app for sponsored tasks. Points are platform rewards, not cash or an investment.",
+          "Earn.pk is a Pakistan rewards app for sponsored tasks. Points are platform rewards, not cash or an investment.",
       },
-      { name: "theme-color", content: "#07101F" },
+      { name: "theme-color", content: "#05070c" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-192.png" },
+      { rel: "icon", type: "image/png", sizes: "512x512", href: "/icon-512.png" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },

@@ -325,6 +325,11 @@ export const adminSaveTask = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await requireAdmin(context.userId);
     const sql = await getSql();
+    let targetUrl = (data.targetUrl ?? "").trim();
+    if (targetUrl && !/^https?:\/\//i.test(targetUrl)) {
+      targetUrl = "https://" + targetUrl.replace(/^\/\//, "");
+    }
+    if (!targetUrl) targetUrl = null as unknown as string;
     if (data.id) {
       await sql`
         update tasks set
@@ -332,7 +337,7 @@ export const adminSaveTask = createServerFn({ method: "POST" })
           description = ${data.description},
           category = ${data.category},
           reward_points = ${data.rewardPoints},
-          target_url = ${data.targetUrl ?? null},
+          target_url = ${targetUrl},
           verification_type = ${data.verificationType},
           max_completions = ${data.maxCompletions ?? null},
           start_date = ${data.startDate ?? null},
@@ -355,7 +360,7 @@ export const adminSaveTask = createServerFn({ method: "POST" })
         min_dwell_seconds, is_featured
       ) values (
         ${data.title}, ${data.description}, ${data.category}, ${data.rewardPoints},
-        ${data.targetUrl ?? null}, ${data.verificationType}, ${data.maxCompletions ?? null},
+        ${targetUrl}, ${data.verificationType}, ${data.maxCompletions ?? null},
         ${data.startDate ?? null}, ${data.endDate ?? null}, ${data.status},
         ${data.sponsorName ?? null}, ${data.campaignId ?? null}, ${data.minDwellSeconds ?? 8},
         ${data.isFeatured ?? false}

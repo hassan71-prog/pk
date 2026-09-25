@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { getTelegram } from "@/lib/telegram";
+import { registerServiceWorker } from "@/lib/register-sw";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
@@ -14,6 +15,7 @@ export function Providers({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
+    registerServiceWorker();
     const tg = getTelegram();
     if (!tg) return;
     tg.ready();
