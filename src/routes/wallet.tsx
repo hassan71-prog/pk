@@ -72,6 +72,38 @@ function WalletPage() {
           <p className="text-xl font-semibold tabular">{formatPoints(w?.pendingPoints ?? 0)}</p>
         </Card>
       </div>
+      {w ? (
+        <Card className="mt-4 space-y-1">
+          <p className="text-xs text-muted">Conversion rate</p>
+          <p className="text-sm font-medium">
+            1 point = Rs {Number(w.pointsToPkr ?? 0.02).toFixed(3)}
+          </p>
+          <p className="text-xs text-subtle">
+            Your balance ≈ Rs{" "}
+            {(Number(w.profile.pointsBalance) * Number(w.pointsToPkr ?? 0.02)).toFixed(2)}
+          </p>
+        </Card>
+      ) : null}
+
+      {w?.comingSoon ? (
+        <Card className="mt-3 border-warning/40 bg-warning/5">
+          <p className="text-sm font-semibold text-warning">Withdrawals coming soon</p>
+          <p className="mt-1 text-xs text-muted">
+            {w.opensAt
+              ? `Opens ${new Date(w.opensAt).toLocaleString("en-PK", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })} (PKT)`
+              : "Admin will open withdrawals soon."}
+          </p>
+        </Card>
+      ) : w && !w.withdrawalsEnabled ? (
+        <Card className="mt-3">
+          <p className="text-sm font-medium">Withdrawals closed</p>
+          <p className="mt-1 text-xs text-muted">Please check back later.</p>
+        </Card>
+      ) : null}
+
       <Disclaimer className="mt-4" />
 
       <h2 className="mt-6 text-sm font-semibold">Rewards catalogue</h2>
@@ -95,7 +127,14 @@ function WalletPage() {
                 <p className="text-sm font-medium">{r.title}</p>
                 <p className="mt-1 text-xs text-muted">{r.description}</p>
               </div>
-              <p className="text-sm font-semibold tabular">{formatPoints(r.pointsCost)}</p>
+              <div className="text-right">
+                <p className="text-sm font-semibold tabular">{formatPoints(r.pointsCost)} pts</p>
+                {w?.pointsToPkr ? (
+                  <p className="text-[11px] text-muted">
+                    ≈ Rs {(r.pointsCost * Number(w.pointsToPkr)).toFixed(2)}
+                  </p>
+                ) : null}
+              </div>
             </div>
           </button>
         ))}
@@ -115,8 +154,20 @@ function WalletPage() {
             value={account}
             onChange={(e) => setAccount(e.target.value)}
           />
-          <Button className="w-full" disabled={redeem.isPending || account.trim().length < 5} onClick={() => redeem.mutate()}>
-            Request redemption
+          <Button
+            className="w-full"
+            disabled={
+              redeem.isPending ||
+              account.trim().length < 5 ||
+              !w?.withdrawalsEnabled
+            }
+            onClick={() => redeem.mutate()}
+          >
+            {!w?.withdrawalsEnabled
+              ? w?.comingSoon
+                ? "Coming soon"
+                : "Withdrawals closed"
+              : "Request redemption"}
           </Button>
         </Card>
       ) : null}
@@ -126,22 +177,46 @@ function WalletPage() {
         {(w?.withdrawals ?? []).length === 0 ? (
           <p className="text-sm text-muted">None yet.</p>
         ) : (
-          w!.withdrawals.map((r) => (
-            <Card key={r.id} className="text-sm">
-              <div className="flex items-center justify-between">
-                <p>{r.rewardTitle ?? "Reward"}</p>
-                <Badge>{r.status}</Badge>
-              </div>
-              <p className="mt-1 text-xs text-muted">
-                {formatPoints(r.points)} pts · {r.paymentMethod} · {r.accountMasked}
-              </p>
-              {r.status === "pending" ? (
-                <Button size="sm" variant="ghost" className="mt-2" onClick={() => cancel.mutate(r.id)}>
-                  Cancel
-                </Button>
-              ) : null}
-            </Card>
-          ))
+          w!.withdrawals.map((r) => {
+            const steps = ["pending", "approved", "processing", "paid"] as const;
+            const rejected = r.status === "rejected";
+            const idx = rejected ? -1 : steps.indexOf(r.status as (typeof steps)[number]);
+            return (
+              <Card key={r.id} className="text-sm">
+                <div className="flex items-center justify-between">
+                  <p className="font-medium">{r.rewardTitle ?? "Reward"}</p>
+                  <Badge tone={rejected ? "danger" : r.status === "paid" ? "success" : "muted"}>
+                    {r.status}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-xs text-muted">
+                  {formatPoints(r.points)} pts · {r.paymentMethod} · {r.accountMasked}
+                </p>
+                <p className="mt-0.5 text-[11px] text-subtle">{timeAgo(r.createdAt)}</p>
+                {!rejected ? (
+                  <div className="mt-3 flex items-center gap-1">
+                    {steps.map((s, i) => (
+                      <div key={s} className="flex flex-1 flex-col items-center gap-1">
+                        <div
+                          className={`h-1.5 w-full rounded-full ${
+                            i <= idx ? "bg-primary" : "bg-surface-2"
+                          }`}
+                        />
+                        <span className="text-[9px] capitalize text-muted">{s}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : r.adminNote ? (
+                  <p className="mt-2 text-xs text-danger">{r.adminNote}</p>
+                ) : null}
+                {r.status === "pending" ? (
+                  <Button size="sm" variant="ghost" className="mt-2" onClick={() => cancel.mutate(r.id)}>
+                    Cancel
+                  </Button>
+                ) : null}
+              </Card>
+            );
+          })
         )}
       </div>
 

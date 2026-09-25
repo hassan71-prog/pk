@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin-shell";
 import { Badge } from "@/components/ui/badge";
@@ -23,15 +23,32 @@ function Page() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [note, setNote] = useState("");
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "processing" | "paid" | "rejected">("all");
+  const [rate, setRate] = useState("0.02");
+  const [opensAtLocal, setOpensAtLocal] = useState("");
 
   const withdrawalStatus = useQuery({
     queryKey: ["admin-withdrawal-status"],
     queryFn: () => adminGetWithdrawalStatus(),
   });
-  const toggleWithdrawal = useMutation({
-    mutationFn: (open: boolean) => adminSetWithdrawalStatus({ data: { open } }),
+
+  useEffect(() => {
+    if (withdrawalStatus.data?.pointsToPkr) setRate(String(withdrawalStatus.data.pointsToPkr));
+    if (withdrawalStatus.data?.opensAt) {
+      // datetime-local needs YYYY-MM-DDTHH:mm
+      const d = new Date(withdrawalStatus.data.opensAt);
+      if (Number.isFinite(d.getTime())) {
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        setOpensAtLocal(local);
+      }
+    }
+  }, [withdrawalStatus.data]);
+
+  const saveConfig = useMutation({
+    mutationFn: (p: { open?: boolean; opensAt?: string | null; pointsToPkr?: string }) =>
+      adminSetWithdrawalStatus({ data: p }),
     onSuccess: () => {
-      toast.success("Withdrawal setting updated");
+      toast.success("Saved");
       void qc.invalidateQueries({ queryKey: ["admin-withdrawal-status"] });
     },
     onError: (e) => toast.error(errorMessage(e)),
@@ -65,6 +82,7 @@ function Page() {
   const all = list.data ?? [];
   const filtered = filter === "all" ? all : all.filter((w) => w.status === filter);
   const pendingIds = filtered.filter((w) => w.status === "pending").map((w) => w.id);
+  const rateNum = Number(rate) || 0;
 
   function toggle(id: number) {
     setSelected((prev) => {
@@ -83,28 +101,84 @@ function Page() {
     }
   }
 
+  function saveSchedule() {
+    const iso = opensAtLocal ? new Date(opensAtLocal).toISOString() : null;
+    saveConfig.mutate({
+      pointsToPkr: rate,
+      opensAt: iso,
+    });
+  }
+
   return (
     <AdminShell title="Withdrawals">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-border p-3">
-        <div>
-          <p className="font-medium">Withdrawals</p>
-          <p className="text-sm text-muted">
-            {withdrawalStatus.data?.open
-              ? "Users can submit withdrawal requests."
-              : "Users cannot submit withdrawal requests."}
-          </p>
-        </div>
-        <Button
-          size="sm"
-          variant={withdrawalStatus.data?.open ? "danger" : "default"}
-          disabled={toggleWithdrawal.isPending}
-          onClick={() => toggleWithdrawal.mutate(!withdrawalStatus.data?.open)}
-        >
-          {withdrawalStatus.data?.open ? "Close Withdrawals" : "Open Withdrawals"}
-        </Button>
-      </div>
+      <Card className="mb-4 space-y-3">
+        <p className="font-medium">Withdraw config</p>
+        <p className="text-sm text-muted">
+          Status:{" "}
+          {withdrawalStatus.data?.comingSoon
+            ? "Coming soon (scheduled)"
+            : withdrawalStatus.data?.open
+              ? "Open for users"
+              : "Closed"}
+          {withdrawalStatus.data?.opensAt
+            ? ` · Opens at ${new Date(withdrawalStatus.data.opensAt).toLocaleString("en-PK")}`
+            : ""}
+        </p>
 
-      {/* Filters */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="text-xs text-muted">1 point = PKR</span>
+            <Input
+              className="mt-1"
+              type="number"
+              step="0.001"
+              min="0"
+              value={rate}
+              onChange={(e) => setRate(e.target.value)}
+            />
+            <span className="mt-1 block text-[11px] text-subtle">
+              Example: 1000 pts = Rs {(1000 * rateNum).toFixed(2)}
+            </span>
+          </label>
+          <label className="block text-sm">
+            <span className="text-xs text-muted">Open date & time (local)</span>
+            <Input
+              className="mt-1"
+              type="datetime-local"
+              value={opensAtLocal}
+              onChange={(e) => setOpensAtLocal(e.target.value)}
+            />
+            <span className="mt-1 block text-[11px] text-subtle">
+              Before this time users see “Coming soon”
+            </span>
+          </label>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" onClick={saveSchedule} disabled={saveConfig.isPending}>
+            Save rate & schedule
+          </Button>
+          <Button
+            size="sm"
+            variant={withdrawalStatus.data?.flagOpen ? "danger" : "default"}
+            disabled={saveConfig.isPending}
+            onClick={() => saveConfig.mutate({ open: !withdrawalStatus.data?.flagOpen })}
+          >
+            {withdrawalStatus.data?.flagOpen ? "Force close" : "Force open flag"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setOpensAtLocal("");
+              saveConfig.mutate({ opensAt: null });
+            }}
+          >
+            Clear schedule
+          </Button>
+        </div>
+      </Card>
+
       <div className="mb-3 flex flex-wrap gap-1">
         {(["all", "pending", "approved", "processing", "paid", "rejected"] as const).map((f) => (
           <Button key={f} size="sm" variant={filter === f ? "default" : "secondary"} onClick={() => setFilter(f)}>
@@ -113,7 +187,6 @@ function Page() {
         ))}
       </div>
 
-      {/* Bulk bar */}
       {selected.size > 0 ? (
         <Card className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <p className="text-sm font-medium">{selected.size} selected</p>
@@ -157,7 +230,7 @@ function Page() {
       )}
 
       <p className="mb-3 text-sm text-muted">
-        Account details are visible here only. They never appear on public leaderboards.
+        Account details are visible here only. PKR shown using rate 1 pt = Rs {rateNum || "—"}.
       </p>
 
       <div className="space-y-3">
@@ -179,6 +252,11 @@ function Page() {
                   <div>
                     <p className="text-sm font-medium">
                       {w.displayName} · {formatPoints(w.points)} pts
+                      {rateNum > 0 ? (
+                        <span className="ml-1 text-xs text-muted">
+                          (≈ Rs {(w.points * rateNum).toFixed(2)})
+                        </span>
+                      ) : null}
                     </p>
                     <p className="text-xs text-muted break-all">
                       {w.paymentMethod} · {w.accountDetails} · {timeAgo(w.createdAt)}

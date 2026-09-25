@@ -33,6 +33,16 @@ const SETTINGS: { key: string; label: string; hint: string }[] = [
     hint: "Cap on referral bonuses one user can earn",
   },
   {
+    key: "points_to_pkr",
+    label: "Points to PKR rate",
+    hint: "e.g. 0.02 means 1 point = Rs 0.02 (1000 pts = Rs 20)",
+  },
+  {
+    key: "withdrawals_opens_at",
+    label: "Withdrawals open at (ISO datetime)",
+    hint: "e.g. 2026-10-01T10:00:00+05:00 — before this, users see Coming Soon",
+  },
+  {
     key: "min_withdrawal_points",
     label: "Minimum withdrawal (points)",
     hint: "Lowest amount users can redeem",

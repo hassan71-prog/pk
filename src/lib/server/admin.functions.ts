@@ -271,13 +271,15 @@ export const adminListTasks = createServerFn({ method: "POST" })
     await requireAdmin(context.userId);
     const sql = await getSql();
     const rows = await sql`
-      select id, title, category, reward_points, verification_type, status, is_featured,
-             max_completions, completion_count, sponsor_name, is_demo, created_at, target_url
+      select id, title, description, category, reward_points, verification_type, status, is_featured,
+             max_completions, completion_count, sponsor_name, is_demo, created_at, target_url,
+             min_dwell_seconds
       from tasks order by id desc
     `;
     return rows.map((r) => ({
       id: Number(r.id),
       title: String(r.title),
+      description: String(r.description ?? ""),
       category: String(r.category),
       rewardPoints: Number(r.reward_points),
       verificationType: String(r.verification_type),
@@ -289,6 +291,7 @@ export const adminListTasks = createServerFn({ method: "POST" })
       isDemo: Boolean(r.is_demo),
       createdAt: toIso(r.created_at),
       targetUrl: (r.target_url as string | null) ?? null,
+      minDwellSeconds: Number(r.min_dwell_seconds ?? 8),
     }));
   });
 
@@ -890,6 +893,8 @@ export const adminSaveSettings = createServerFn({ method: "POST" })
       "bot_username",
       "support_email",
       "platform_name",
+      "points_to_pkr",
+      "withdrawals_opens_at",
     ]);
     for (const [key, value] of Object.entries(data.entries)) {
       if (!allowed.has(key)) continue;
@@ -1023,16 +1028,28 @@ export const adminPurgeDemo = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     await requireAdmin(context.userId);
     const sql = await getSql();
-
-    const rows = await sql<{ value: string }>`
-      select value
-      from settings
-      where key = 'withdrawals_open'
-      limit 1
+    const openRows = await sql<{ value: string }>`
+      select value from settings where key = 'withdrawals_open' limit 1
     `;
-
+    const rateRows = await sql<{ value: string }>`
+      select value from settings where key = 'points_to_pkr' limit 1
+    `;
+    const atRows = await sql<{ value: string }>`
+      select value from settings where key = 'withdrawals_opens_at' limit 1
+    `;
+    const opensAt = (atRows[0]?.value ?? "").trim() || null;
+    let scheduledOpen = true;
+    if (opensAt) {
+      const t = new Date(opensAt).getTime();
+      if (Number.isFinite(t) && Date.now() < t) scheduledOpen = false;
+    }
+    const flagOpen = (openRows[0]?.value ?? "1") === "1";
     return {
-      open: (rows[0]?.value ?? "1") === "1",
+      open: flagOpen && scheduledOpen,
+      flagOpen,
+      opensAt,
+      pointsToPkr: rateRows[0]?.value ?? "0.02",
+      comingSoon: Boolean(opensAt && !scheduledOpen),
     };
   });
 
@@ -1040,31 +1057,50 @@ export const adminSetWithdrawalStatus = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(
     z.object({
-      open: z.boolean(),
+      open: z.boolean().optional(),
+      opensAt: z.string().max(40).optional().nullable(),
+      pointsToPkr: z.string().max(20).optional(),
     }),
   )
   .handler(async ({ context, data }) => {
     await requireAdmin(context.userId);
     const sql = await getSql();
 
-    await sql`
-      insert into settings (key, value)
-      values ('withdrawals_open', ${data.open ? "1" : "0"})
-      on conflict (key)
-      do update set value = excluded.value
-    `;
+    if (typeof data.open === "boolean") {
+      await sql`
+        insert into settings (key, value, updated_at)
+        values ('withdrawals_open', ${data.open ? "1" : "0"}, now())
+        on conflict (key) do update set value = excluded.value, updated_at = now()
+      `;
+    }
+    if (data.opensAt !== undefined) {
+      const v = data.opensAt?.trim() || "";
+      await sql`
+        insert into settings (key, value, updated_at)
+        values ('withdrawals_opens_at', ${v}, now())
+        on conflict (key) do update set value = excluded.value, updated_at = now()
+      `;
+    }
+    if (data.pointsToPkr !== undefined) {
+      const n = Number(data.pointsToPkr);
+      if (!Number.isFinite(n) || n < 0) throw new AppError("Invalid points rate.");
+      await sql`
+        insert into settings (key, value, updated_at)
+        values ('points_to_pkr', ${String(n)}, now())
+        on conflict (key) do update set value = excluded.value, updated_at = now()
+      `;
+    }
 
     await audit(
       sql,
       context.userId,
-      "withdrawals.toggle",
+      "withdrawals.config",
       "settings",
-      "withdrawals_open",
-      data.open ? "open" : "closed",
+      "withdrawals",
+      JSON.stringify(data),
     );
 
-    return {
-      ok: true,
-      open: data.open,
-    };
+    return { ok: true };
   });
+
+

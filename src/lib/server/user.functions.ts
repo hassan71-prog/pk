@@ -453,7 +453,7 @@ export const getReferralInfo = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const profile = await ensureProfile(context.userId, data ?? undefined, data?.referralCode);
     const sql = await getSql();
-    const bot = await getSetting(sql, "bot_username", "TaskEarnPKBot");
+    const bot = await getSetting(sql, "bot_username", "EarnPkBot");
     const reward = await getSettingInt(sql, "referral_reward", 250);
     const qualify = await getSettingInt(sql, "referral_qualify_tasks", 1);
     const stats = await sql<{ total: number; active: number; earned: number }>`
@@ -637,10 +637,24 @@ export const getWallet = createServerFn({ method: "POST" })
       limit 20
     `;
     const minPts = await getSettingInt(sql, "min_withdrawal_points", 1000);
+    const pointsToPkr = Number(await getSetting(sql, "points_to_pkr", "0.02"));
+    const opensAtRaw = (await getSetting(sql, "withdrawals_opens_at", "")).trim();
+    const flagOpen = (await getSettingInt(sql, "withdrawals_open", 1)) === 1;
+    let comingSoon = false;
+    let opensAt: string | null = opensAtRaw || null;
+    if (opensAtRaw) {
+      const t = new Date(opensAtRaw).getTime();
+      if (Number.isFinite(t) && Date.now() < t) comingSoon = true;
+    }
+    const withdrawalsEnabled = flagOpen && !comingSoon;
     return {
       profile,
       pendingPoints: Number(pending[0]?.n ?? 0),
       minWithdrawal: minPts,
+      pointsToPkr: Number.isFinite(pointsToPkr) ? pointsToPkr : 0.02,
+      opensAt,
+      comingSoon,
+      withdrawalsEnabled,
       transactions: tx.map(
         (r): TxRow => ({
           id: r.id,
@@ -696,15 +710,22 @@ export const createWithdrawal = createServerFn({ method: "POST" })
       const profile = await ensureProfile(context.userId);
       const sql = await getSql();
 
-      // Check whether withdrawals are open
-      const withdrawalsOpen = await getSettingInt(
-        sql,
-        "withdrawals_open",
-        1,
-      );
-
+      // Withdrawals: admin flag + optional scheduled open time
+      const withdrawalsOpen = await getSettingInt(sql, "withdrawals_open", 1);
+      const opensAtRaw = (await getSetting(sql, "withdrawals_opens_at", "")).trim();
+      if (opensAtRaw) {
+        const t = new Date(opensAtRaw).getTime();
+        if (Number.isFinite(t) && Date.now() < t) {
+          const when = new Date(t).toLocaleString("en-PK", {
+            timeZone: "Asia/Karachi",
+            dateStyle: "medium",
+            timeStyle: "short",
+          });
+          throw new AppError(`Withdrawals coming soon — opens ${when} (PKT).`);
+        }
+      }
       if (withdrawalsOpen !== 1) {
-        throw new AppError("Withdrawals are currently closed.");
+        throw new AppError("Withdrawals are currently closed. Coming soon.");
       }
 
       const minPts = await getSettingInt(sql, "min_withdrawal_points", 1000);
