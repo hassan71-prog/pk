@@ -18,11 +18,33 @@ import { ExternalLink, CheckCircle2, Play } from "lucide-react";
 
 export const Route = createFileRoute("/tasks/$taskId")({ component: TaskDetail });
 
+function normalizeUrl(url: string) {
+  const href = url.trim();
+  if (!href) return "";
+  if (/^https?:\/\//i.test(href)) return href;
+  return "https://" + href;
+}
+
 function openLink(url: string) {
-  // User-gesture friendly open. Prefer new tab; fallback same window if blocked.
-  const w = window.open(url, "_blank", "noopener,noreferrer");
-  if (!w || w.closed) {
-    window.location.href = url;
+  const href = normalizeUrl(url);
+  if (!href) return false;
+  // Prefer programmatic <a> click — more reliable on mobile WebViews
+  try {
+    const a = document.createElement("a");
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  } catch {
+    const w = window.open(href, "_blank", "noopener,noreferrer");
+    if (!w) {
+      window.location.assign(href);
+    }
+    return true;
   }
 }
 
@@ -65,18 +87,23 @@ function TaskDetail() {
     mutationFn: () => startTask({ data: { taskId: Number(taskId) } }),
     onSuccess: async () => {
       haptic();
-      const url = task.data?.targetUrl;
-      if (url) {
-        openLink(url);
-        toast.success("Link open ho gaya. Action complete karke wapas aao.");
-      } else {
-        toast.success("Task start ho gaya.");
-      }
+      toast.success("Task start — link open rakho, action complete karke claim karo.");
       await qc.invalidateQueries({ queryKey: ["task", taskId] });
       await qc.invalidateQueries({ queryKey: ["tasks"] });
     },
     onError: (err) => toast.error(errorMessage(err)),
   });
+
+  /** Open URL in the same user-gesture tick (avoids popup blockers after await). */
+  function handleStartAndOpen() {
+    const url = task.data?.targetUrl?.trim();
+    if (url) {
+      openLink(url);
+    } else {
+      toast.error("Is task mein koi link nahi. Admin se URL add karwayein.");
+    }
+    start.mutate();
+  }
 
   const submit = useMutation({
     mutationFn: () =>
@@ -164,7 +191,7 @@ function TaskDetail() {
       ) : (
         <div className="mt-4 space-y-3">
           {t.userState === "available" ? (
-            <Button className="w-full" disabled={start.isPending} onClick={() => start.mutate()}>
+            <Button className="w-full" disabled={start.isPending} onClick={handleStartAndOpen}>
               <Play className="size-4" />
               {start.isPending ? "Opening…" : t.targetUrl ? "Start & open link" : "Start task"}
             </Button>
@@ -173,11 +200,23 @@ function TaskDetail() {
           {t.userState === "started" ? (
             <>
               {t.targetUrl ? (
-                <Button variant="secondary" className="w-full" onClick={() => openLink(t.targetUrl!)}>
-                  <ExternalLink className="size-4" />
-                  Link dobara open karo
-                </Button>
-              ) : null}
+                <>
+                  <Button variant="secondary" className="w-full" onClick={() => openLink(t.targetUrl!)}>
+                    <ExternalLink className="size-4" />
+                    Link dobara open karo
+                  </Button>
+                  <a
+                    href={/^https?:\/\//i.test(t.targetUrl) ? t.targetUrl : `https://${t.targetUrl}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-center text-xs text-primary break-all underline"
+                  >
+                    {t.targetUrl}
+                  </a>
+                </>
+              ) : (
+                <p className="text-center text-xs text-danger">Link missing — admin se URL set karwayein</p>
+              )}
 
               {isAutoVerify ? (
                 <Card className="text-center">

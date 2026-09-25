@@ -1,24 +1,25 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #07101f;
-  --color-surface: #0d1730;
-  --color-surface-2: #132044;
-  --color-fg: #f3f6fb;
-  --color-muted: #8d9bb8;
-  --color-subtle: #5e6d8c;
-  --color-primary: #3d8bfd;
-  --color-primary-fg: #06101c;
-  --color-border: color-mix(in oklab, var(--color-fg) 12%, transparent);
-  --color-border-strong: color-mix(in oklab, var(--color-fg) 22%, transparent);
-  --color-success: #3dd68c;
+  /* Premium black + gold / emerald */
+  --color-bg: #05070c;
+  --color-surface: #0c1018;
+  --color-surface-2: #141a24;
+  --color-fg: #f5f0e6;
+  --color-muted: #9aa3b5;
+  --color-subtle: #6b7385;
+  --color-primary: #d4a017;
+  --color-primary-fg: #0a0c10;
+  --color-border: color-mix(in oklab, #d4a017 18%, transparent);
+  --color-border-strong: color-mix(in oklab, #d4a017 35%, transparent);
+  --color-success: #2ecc71;
   --color-warning: #e8b84a;
-  --color-danger: #f07178;
-  --color-ring: #3d8bfd;
+  --color-danger: #e74c3c;
+  --color-ring: #d4a017;
   --radius-xs: 4px;
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
   --radius-xl: 24px;
   --radius-2xl: 32px;
   --font-sans: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
@@ -79,6 +80,21 @@
 
 .app-bg {
   background:
-    radial-gradient(1200px 500px at 50% -10%, color-mix(in oklab, var(--color-primary) 16%, transparent), transparent 60%),
+    radial-gradient(900px 420px at 50% -8%, color-mix(in oklab, #d4a017 14%, transparent), transparent 55%),
+    radial-gradient(700px 380px at 100% 20%, color-mix(in oklab, #0d9488 10%, transparent), transparent 50%),
     var(--color-bg);
+}
+
+/* Premium card sheen */
+.card-premium {
+  background: linear-gradient(145deg, color-mix(in oklab, #d4a017 6%, #0c1018), #0c1018);
+  border-color: color-mix(in oklab, #d4a017 22%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, #d4a017 8%, transparent), 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.gold-text {
+  background: linear-gradient(135deg, #f5e6a8, #d4a017 50%, #b8860b);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
