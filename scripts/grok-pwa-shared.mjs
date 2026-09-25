@@ -157,19 +157,53 @@ export function renderInstallPageHtml(template, { host, url } = {}) {
     .replaceAll("{{APP_URL}}", escapeHtml(stripInstallParams(url)));
 }
 
-export function renderWebManifest(hostHeader) {
-  const name = appNameFromHost(hostHeader);
+export function renderWebManifest(hostHeader, workspaceRoot) {
+  // Prefer site.json title (Earn.pk) over host slug / default "Grok App"
+  let name = appNameFromHost(hostHeader);
+  try {
+    const root = workspaceRoot || process.cwd();
+    const sitePath = join(root, OG_SITE_REL_PATH);
+    if (existsSync(sitePath)) {
+      const site = JSON.parse(readFileSync(sitePath, "utf8"));
+      const title = String(site.title ?? "").trim();
+      if (title) name = title;
+    }
+  } catch {
+    /* keep host/default name */
+  }
+  if (!name || name === DEFAULT_APP_NAME) {
+    name = "Earn.pk";
+  }
+  const shortName = name.length > 12 ? name.slice(0, 12) : name;
   return JSON.stringify(
     {
       name,
-      short_name: name,
+      short_name: shortName,
       id: "/",
       start_url: "/",
       scope: "/",
       display: "standalone",
-      background_color: "#000000",
-      theme_color: "#000000",
+      background_color: "#05070c",
+      theme_color: "#05070c",
       icons: [
+        {
+          src: "/icon-192.png",
+          sizes: "192x192",
+          type: "image/png",
+          purpose: "any",
+        },
+        {
+          src: "/icon-512.png",
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "any",
+        },
+        {
+          src: "/icon-512.png",
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "maskable",
+        },
         {
           src: "/__grok/icon-180.png",
           sizes: "180x180",
