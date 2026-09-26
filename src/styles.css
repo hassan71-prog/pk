@@ -1,21 +1,24 @@
 @import "tailwindcss";
 
 @theme {
-  /* Premium black + gold / emerald */
-  --color-bg: #05070c;
-  --color-surface: #0c1018;
-  --color-surface-2: #141a24;
-  --color-fg: #f5f0e6;
-  --color-muted: #9aa3b5;
-  --color-subtle: #6b7385;
-  --color-primary: #d4a017;
-  --color-primary-fg: #0a0c10;
-  --color-border: color-mix(in oklab, #d4a017 18%, transparent);
-  --color-border-strong: color-mix(in oklab, #d4a017 35%, transparent);
-  --color-success: #2ecc71;
-  --color-warning: #e8b84a;
-  --color-danger: #e74c3c;
-  --color-ring: #d4a017;
+  /* Gaming rewards — dark + neon green (Earn.pk) */
+  --color-bg: #0a0e14;
+  --color-surface: #121820;
+  --color-surface-2: #1a222e;
+  --color-fg: #f0f4f8;
+  --color-muted: #8b9aab;
+  --color-subtle: #5c6b7a;
+  --color-primary: #22c55e;
+  --color-primary-fg: #04140a;
+  --color-border: color-mix(in oklab, #22c55e 16%, transparent);
+  --color-border-strong: color-mix(in oklab, #22c55e 32%, transparent);
+  --color-success: #22c55e;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --color-ring: #22c55e;
+  --color-gold: #f5c518;
+  --color-silver: #c0c7d1;
+  --color-bronze: #cd7f32;
   --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 14px;
@@ -42,16 +45,12 @@
     font-family: var(--font-sans);
   }
 
-  h1,
-  h2,
-  h3 {
+  h1, h2, h3 {
     text-wrap: balance;
     letter-spacing: -0.03em;
   }
 
-  p {
-    text-wrap: pretty;
-  }
+  p { text-wrap: pretty; }
 
   button:not(:disabled),
   [role="button"]:not(:disabled) {
@@ -65,36 +64,40 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }
 
-.tabular {
-  font-variant-numeric: tabular-nums;
-}
+.tabular { font-variant-numeric: tabular-nums; }
 
 .app-bg {
   background:
-    radial-gradient(900px 420px at 50% -8%, color-mix(in oklab, #d4a017 14%, transparent), transparent 55%),
-    radial-gradient(700px 380px at 100% 20%, color-mix(in oklab, #0d9488 10%, transparent), transparent 50%),
+    radial-gradient(900px 420px at 50% -12%, color-mix(in oklab, #22c55e 18%, transparent), transparent 55%),
+    radial-gradient(600px 300px at 90% 10%, color-mix(in oklab, #fbbf24 8%, transparent), transparent 50%),
     var(--color-bg);
 }
 
-/* Premium card sheen */
-.card-premium {
-  background: linear-gradient(145deg, color-mix(in oklab, #d4a017 6%, #0c1018), #0c1018);
-  border-color: color-mix(in oklab, #d4a017 22%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in oklab, #d4a017 8%, transparent), 0 8px 28px rgba(0, 0, 0, 0.35);
+/* Podium */
+.podium-1 {
+  background: linear-gradient(180deg, #22c55e 0%, #15803d 100%);
+  box-shadow: 0 0 24px color-mix(in oklab, #22c55e 40%, transparent);
+}
+.podium-2 {
+  background: linear-gradient(180deg, #64748b 0%, #334155 100%);
+}
+.podium-3 {
+  background: linear-gradient(180deg, #cd7f32 0%, #8b5a2b 100%);
 }
 
-.gold-text {
-  background: linear-gradient(135deg, #f5e6a8, #d4a017 50%, #b8860b);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.gift-glow {
+  filter: drop-shadow(0 0 28px color-mix(in oklab, #a855f7 45%, transparent));
+}
+
+.coin-chip {
+  background: linear-gradient(145deg, #fbbf24, #d97706);
+  color: #1a1000;
+  font-weight: 700;
 }

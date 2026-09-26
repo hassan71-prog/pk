@@ -75,19 +75,76 @@ function ProfilePage() {
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Card className="p-3">
           <p className="text-[11px] text-muted">Points</p>
-          <p className="text-sm font-semibold tabular">{formatPoints(p?.pointsBalance ?? 0)}</p>
+          <p className="text-sm font-semibold tabular text-primary">{formatPoints(p?.pointsBalance ?? 0)}</p>
         </Card>
         <Card className="p-3">
           <p className="text-[11px] text-muted">Tasks</p>
           <p className="text-sm font-semibold tabular">{p?.tasksCompleted ?? 0}</p>
         </Card>
         <Card className="p-3">
-          <p className="text-[11px] text-muted">Member</p>
-          <p className="text-sm font-semibold">
-            {p?.createdAt ? new Date(p.createdAt).toLocaleDateString("en-PK") : "—"}
-          </p>
+          <p className="text-[11px] text-muted">Streak</p>
+          <p className="text-sm font-semibold tabular">🔥 {p?.dailyStreak ?? 0}</p>
         </Card>
       </div>
+
+      {/* Rank path — Bronze → Silver → Gold → Diamond */}
+      <Card className="mt-4 space-y-3">
+        <p className="text-sm font-semibold">Your ranks</p>
+        {(() => {
+          const earned = p?.lifetimeEarned ?? 0;
+          const tasks = p?.tasksCompleted ?? 0;
+          const score = tasks * 10 + Math.floor(earned / 100);
+          const tiers = [
+            { name: "Bronze", need: 0, emoji: "🥉", color: "text-amber-700" },
+            { name: "Silver", need: 50, emoji: "🥈", color: "text-slate-300" },
+            { name: "Gold", need: 200, emoji: "🥇", color: "text-warning" },
+            { name: "Diamond", need: 500, emoji: "💎", color: "text-cyan-300" },
+          ];
+          let current = tiers[0]!;
+          for (const t of tiers) {
+            if (score >= t.need) current = t;
+          }
+          const next = tiers.find((t) => t.need > score);
+          const progress = next
+            ? Math.min(100, Math.round(((score - current.need) / (next.need - current.need)) * 100))
+            : 100;
+          return (
+            <>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{current.emoji}</span>
+                <div className="min-w-0 flex-1">
+                  <p className={`font-semibold ${current.color}`}>{current.name}</p>
+                  <p className="text-[11px] text-muted">
+                    {next ? `${next.need - score} score to ${next.name}` : "Max rank unlocked"}
+                  </p>
+                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-2">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {tiers.map((t) => {
+                  const unlocked = score >= t.need;
+                  return (
+                    <div
+                      key={t.name}
+                      className={`rounded-xl border py-2 text-center ${
+                        unlocked ? "border-primary/40 bg-primary/10" : "border-border bg-bg opacity-50"
+                      }`}
+                    >
+                      <div className="text-lg">{t.emoji}</div>
+                      <div className="text-[10px] font-medium">{t.name}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          );
+        })()}
+      </Card>
 
       <div className="mt-4 space-y-1">
         <Row to="/wallet" label="Wallet & rewards" />

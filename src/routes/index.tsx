@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { ArrowRight, Gift, ClipboardList, Users, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, Disclaimer } from "@/components/app-shell";
@@ -34,6 +35,19 @@ function Home() {
 }
 
 function Landing() {
+  const [oauthBusy, setOauthBusy] = useState(false);
+
+  async function onOAuth(providerId: string) {
+    if (oauthBusy) return;
+    setOauthBusy(true);
+    try {
+      await signIn(providerId, { callbackURL: "/" });
+    } catch (err) {
+      toast.error(errorMessage(err));
+      setOauthBusy(false);
+    }
+  }
+
   return (
     <main className="app-bg mx-auto flex min-h-dvh w-full max-w-lg flex-col px-5 py-8">
       <Logo />
@@ -41,7 +55,7 @@ function Landing() {
         Tasks that pay in platform points
       </h1>
       <p className="mt-4 text-sm leading-relaxed text-muted">
-        TaskEarn PK is a rewards app for people in Pakistan. Join sponsored campaigns,
+        Earn.pk is a rewards app for people in Pakistan. Join sponsored campaigns,
         complete verifiable tasks, and redeem through live reward catalogues — never a
         mining scheme, never a guaranteed return.
       </p>
@@ -50,13 +64,19 @@ function Landing() {
           <Button
             key={p.providerId}
             className="w-full"
-            variant={p.providerId === "google-grok" ? "default" : "secondary"}
-            onClick={() => signIn(p.providerId, { callbackURL: "/" })}
+            variant={p.providerId === "google-grok" || p.providerId === "grok-google" ? "default" : "secondary"}
+            disabled={oauthBusy}
+            onClick={() => void onOAuth(p.providerId)}
           >
-            Continue with {p.label}
+            {oauthBusy ? "Redirecting…" : `Continue with ${p.label}`}
           </Button>
         ))}
-        <Button variant="outline" className="w-full" onClick={() => (window.location.href = "/login")}>
+        <Button
+          variant="outline"
+          className="w-full"
+          disabled={oauthBusy}
+          onClick={() => (window.location.href = "/login")}
+        >
           Email sign in
         </Button>
       </div>
@@ -102,23 +122,51 @@ function Dashboard() {
   return (
     <AppShell points={d.profile.pointsBalance} unread={d.unread}>
       <p className="text-sm text-muted">Welcome back</p>
-      <h1 className="font-display text-2xl font-semibold tracking-tight">{greet}</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="font-display text-2xl font-semibold tracking-tight">{greet}</h1>
+        {(() => {
+          const lv = levelFrom(d.profile.tasksCompleted, d.profile.lifetimeEarned);
+          return (
+            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
+              {lv.name}
+            </span>
+          );
+        })()}
+      </div>
+      {d.profile.dailyStreak > 0 ? (
+        <p className="mt-1 text-xs text-warning">🔥 {d.profile.dailyStreak}-day streak</p>
+      ) : null}
 
-      <Card className="mt-4 rounded-2xl p-5">
-        <p className="text-xs font-medium tracking-wide text-muted uppercase">Available points</p>
-        <p className="mt-1 font-display text-4xl font-semibold tabular tracking-tight">
-          {formatPoints(d.profile.pointsBalance)}
+      {/* Balance chip */}
+      <div className="mt-3 flex items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3">
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Balance</p>
+          <p className="font-display text-3xl font-bold tabular text-primary">
+            {formatPoints(d.profile.pointsBalance)}
+          </p>
+        </div>
+        <div className="coin-chip rounded-full px-3 py-1 text-xs">pts</div>
+      </div>
+
+      {/* Daily Reward — gift style */}
+      <Card className="mt-4 overflow-hidden rounded-2xl border-primary/20 bg-gradient-to-b from-surface to-bg p-5 text-center">
+        <p className="text-sm font-semibold tracking-wide text-fg">Daily Reward</p>
+        <div className="gift-glow mx-auto mt-3 grid size-24 place-items-center rounded-2xl bg-gradient-to-br from-violet-500/30 via-fuchsia-500/20 to-amber-400/20 text-5xl">
+          🎁
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          {d.daily.claimed ? "Already claimed today — come back tomorrow" : `Open your day ${d.daily.dayNumber} reward`}
         </p>
-        <p className="mt-1 text-xs text-subtle">Platform rewards · not cash</p>
         <Button
-          className="mt-4 w-full"
+          className="mt-4 w-full rounded-xl text-base font-bold shadow-[0_0_20px_rgba(34,197,94,0.35)]"
+          size="lg"
           disabled={d.daily.claimed || claim.isPending}
           onClick={() => claim.mutate()}
         >
-          <Gift className="size-4" />
-          {d.daily.claimed ? "Claimed today" : `Claim daily · +${d.daily.nextPoints}`}
+          <Gift className="size-5" />
+          {d.daily.claimed ? "Claimed today" : `Claim · +${d.daily.nextPoints}`}
         </Button>
-        <div className="mt-4 grid grid-cols-7 gap-1">
+        <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-7">
           {d.daily.schedule.map((pts, i) => {
             const day = i + 1;
             const done = d.daily.claimed ? day <= d.daily.dayNumber : day < d.daily.dayNumber;
@@ -126,11 +174,16 @@ function Dashboard() {
             return (
               <div
                 key={day}
-                className={`rounded-md py-2 text-center ${current ? "bg-primary/15 text-primary" : "bg-bg text-muted"}`}
+                className={`rounded-xl border py-2 text-center ${
+                  current
+                    ? "border-primary bg-primary/15 text-primary"
+                    : done
+                      ? "border-border bg-surface text-success"
+                      : "border-border bg-bg text-muted"
+                }`}
               >
-                <div className="text-[10px]">D{day}</div>
-                <div className="text-[11px] font-semibold tabular">{pts}</div>
-                {done ? <div className="text-[9px] text-success">done</div> : null}
+                <div className="text-[10px] font-medium">Day {day}</div>
+                <div className="mt-0.5 text-[11px] font-bold tabular">🪙 {pts}</div>
               </div>
             );
           })}
@@ -176,6 +229,22 @@ function Dashboard() {
         <Quick to="/ranks" icon={Trophy} label="Ranks" />
       </div>
 
+      
+      <h2 className="mt-6 text-sm font-semibold">Achievements</h2>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {achievementsOf(d).map((a) => (
+          <span
+            key={a.id}
+            className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+              a.done ? "bg-success/15 text-success" : "bg-surface text-muted"
+            }`}
+          >
+            {a.done ? "✓ " : ""}
+            {a.label}
+          </span>
+        ))}
+      </div>
+
       <h2 className="mt-6 text-sm font-semibold">Recent activity</h2>
       <div className="mt-2 space-y-2">
         {d.recent.length === 0 ? (
@@ -198,6 +267,31 @@ function Dashboard() {
       <Disclaimer className="mt-8" />
     </AppShell>
   );
+}
+
+
+function levelFrom(tasks: number, earned: number) {
+  const score = tasks * 10 + Math.floor(earned / 100);
+  if (score >= 500) return { name: "Diamond", tone: "primary" as const };
+  if (score >= 200) return { name: "Gold", tone: "warning" as const };
+  if (score >= 50) return { name: "Silver", tone: "muted" as const };
+  return { name: "Bronze", tone: "muted" as const };
+}
+
+function achievementsOf(d: {
+  profile: { tasksCompleted: number; lifetimeEarned: number; dailyStreak: number };
+  referrals: number;
+}) {
+  const list: { id: string; label: string; done: boolean }[] = [
+    { id: "first", label: "First task", done: d.profile.tasksCompleted >= 1 },
+    { id: "five", label: "5 tasks", done: d.profile.tasksCompleted >= 5 },
+    { id: "ten", label: "10 tasks", done: d.profile.tasksCompleted >= 10 },
+    { id: "ref1", label: "1 referral", done: d.referrals >= 1 },
+    { id: "ref5", label: "5 referrals", done: d.referrals >= 5 },
+    { id: "streak3", label: "3-day streak", done: d.profile.dailyStreak >= 3 },
+    { id: "earn1k", label: "1,000 pts earned", done: d.profile.lifetimeEarned >= 1000 },
+  ];
+  return list;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
