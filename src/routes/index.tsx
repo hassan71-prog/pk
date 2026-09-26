@@ -12,7 +12,13 @@ import { RedirectToSignIn } from "@/lib/auth/gates";
 import { GROK_PROVIDERS, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { identityPayload, useCaptureReferral } from "@/lib/identity";
-import { claimDaily, getDashboard } from "@/lib/server/user.functions";
+import {
+  claimDaily,
+  claimLeaderboardBonus,
+  getDashboard,
+  getSpinStatus,
+  spinDaily,
+} from "@/lib/server/user.functions";
 import { haptic } from "@/lib/telegram";
 import { TX_LABELS } from "@/lib/types";
 import { errorMessage, formatPoints, timeAgo } from "@/lib/utils";
@@ -94,7 +100,29 @@ function Dashboard() {
     mutationFn: () => claimDaily(),
     onSuccess: (res) => {
       haptic("medium");
-      toast.success(`Daily reward: +${res.points} points`);
+      const freeze = (res as { usedFreeze?: boolean }).usedFreeze ? " (streak freeze used)" : "";
+      toast.success(`Daily reward: +${res.points} points${freeze}`);
+      void qc.invalidateQueries();
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+  const spinStatus = useQuery({
+    queryKey: ["spin-status"],
+    queryFn: () => getSpinStatus(),
+  });
+  const spin = useMutation({
+    mutationFn: () => spinDaily(),
+    onSuccess: (res) => {
+      haptic("medium");
+      toast.success(`Lucky spin: +${res.points} points!`);
+      void qc.invalidateQueries();
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+  const lbBonus = useMutation({
+    mutationFn: () => claimLeaderboardBonus(),
+    onSuccess: (res) => {
+      toast.success(`Rank #${res.rank} bonus: +${res.points}`);
       void qc.invalidateQueries();
     },
     onError: (err) => toast.error(errorMessage(err)),
@@ -187,6 +215,37 @@ function Dashboard() {
           })}
         </div>
       </Card>
+
+      {/* Lucky Spin */}
+      <Card className="mt-3 rounded-2xl border-warning/30 bg-gradient-to-r from-amber-500/10 to-surface p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold">Lucky Spin 🎡</p>
+            <p className="text-[11px] text-muted">
+              {spinStatus.data?.usedToday
+                ? `Aaj +${spinStatus.data.todayPoints} mil chuka`
+                : "Roz ek free spin"}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            className="shrink-0 font-bold"
+            disabled={spin.isPending || spinStatus.data?.usedToday || spinStatus.data?.enabled === false}
+            onClick={() => spin.mutate()}
+          >
+            {spinStatus.data?.usedToday ? "Done" : spin.isPending ? "…" : "Spin"}
+          </Button>
+        </div>
+      </Card>
+
+      <Button
+        variant="outline"
+        className="mt-2 w-full text-xs"
+        disabled={lbBonus.isPending}
+        onClick={() => lbBonus.mutate()}
+      >
+        {lbBonus.isPending ? "Checking…" : "Claim weekly rank bonus (Top 10)"}
+      </Button>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Stat label="Today" value={`+${formatPoints(d.todayEarned)}`} />

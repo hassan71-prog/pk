@@ -28,6 +28,33 @@ function normalizeUrl(url: string | null | undefined): string {
   return "https://" + href.replace(/^\/\//, "");
 }
 
+function catIcon(cat: string) {
+  const m: Record<string, string> = {
+    telegram: "✈️",
+    website: "🌐",
+    social: "📱",
+    sponsored: "⭐",
+    affiliate: "🔗",
+    daily: "📅",
+  };
+  return m[cat] ?? "📋";
+}
+
+async function shareTask(title: string, id: number) {
+  const url = typeof window !== "undefined" ? `${window.location.origin}/tasks/${id}` : "";
+  const text = `Earn.pk task: ${title} — points kamao! ${url}`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: "Earn.pk", text, url });
+    } else {
+      await navigator.clipboard.writeText(text);
+      toast.success("Task link copied");
+    }
+  } catch {
+    /* cancelled */
+  }
+}
+
 function TasksPage() {
   useCaptureReferral();
   const { user, isPending } = useCurrentUserState();
@@ -143,7 +170,7 @@ function TasksPage() {
                 <a href={`/tasks/${t.id}`} className="block p-4 active:bg-surface-2">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium">{t.title}</p>
+                      <p className="text-sm font-medium">{catIcon(t.category)} {t.title}</p>
                       <p className="mt-1 text-xs text-muted line-clamp-2">{t.description}</p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         <Badge>{t.category}</Badge>
@@ -213,6 +240,13 @@ function TasksPage() {
                   {t.userState === "pending" ? (
                     <p className="text-center text-sm text-warning">Waiting for admin review</p>
                   ) : null}
+                  <button
+                    type="button"
+                    className="w-full py-1.5 text-center text-[11px] font-medium text-muted"
+                    onClick={() => void shareTask(t.title, t.id)}
+                  >
+                    Share task ↗
+                  </button>
                 </div>
               </Card>
             );

@@ -203,6 +203,33 @@ export async function maybeQualifyReferral(sql: Sql, referredUserId: string) {
     "Referral qualified",
     `A referred member completed the qualification. +${reward} points. Balance ${balance}.`,
   );
+
+  // L2: if the referrer was themselves referred, small bonus to the upline
+  const l2Reward = await getSettingInt(sql, "referral_l2_reward", 10);
+  if (l2Reward > 0) {
+    const up = await sql<{ referred_by: string | null }>`
+      select referred_by from app_profiles where user_id = ${ref.referrer_user_id}
+    `;
+    const parent = up[0]?.referred_by;
+    if (parent && parent !== referredUserId && parent !== ref.referrer_user_id) {
+      await creditPoints(
+        sql,
+        parent,
+        l2Reward,
+        "referral_l2_reward",
+        "Level-2 referral bonus",
+        "referral",
+        String(ref.id),
+      );
+      await notify(
+        sql,
+        parent,
+        "referral_l2",
+        "L2 referral bonus",
+        `+${l2Reward} points from your team's referral.`,
+      );
+    }
+  }
 }
 
 export async function applyReferralIfNeeded(

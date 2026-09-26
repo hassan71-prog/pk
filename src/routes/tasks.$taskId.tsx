@@ -232,12 +232,12 @@ function TaskDetail() {
               {needsProof ? (
                 <>
                   <Input
-                    placeholder="Proof URL (optional)"
+                    placeholder="Proof photo URL (Imgur/Drive link)"
                     value={proofUrl}
                     onChange={(e) => setProofUrl(e.target.value)}
                   />
                   <Textarea
-                    placeholder="Kya complete kiya?"
+                    placeholder="Note + proof details"
                     value={proofNote}
                     onChange={(e) => setProofNote(e.target.value)}
                   />

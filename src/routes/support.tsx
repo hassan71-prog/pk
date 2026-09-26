@@ -57,11 +57,11 @@ function SupportPage() {
     onError: (err) => toast.error(errorMessage(err)),
   });
 
-  if (isPending) return <AppShell title="Support"><Skeleton className="h-40 rounded-xl" /></AppShell>;
+  if (isPending) return <AppShell title="Help & Chat"><Skeleton className="h-40 rounded-xl" /></AppShell>;
   if (!user) return <RedirectToSignIn />;
 
   return (
-    <AppShell title="Support">
+    <AppShell title="Help & Chat">
       <h2 className="text-sm font-semibold">FAQ</h2>
       <div className="mt-2 space-y-2">
         {FAQ.map((f) => (

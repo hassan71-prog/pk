@@ -293,6 +293,15 @@ export const completeTask = createServerFn({ method: "POST" })
       rateLimit(context.userId, "complete-task", 20, 60_000);
       await ensureProfile(context.userId);
       const sql = await getSql();
+      const dailyCap = await getSettingInt(sql, "task_daily_cap", 20);
+      const todayDone = await sql<{ n: number }>`
+        select count(*)::int as n from task_completions
+        where user_id = ${context.userId} and status = 'completed'
+          and submitted_at::date = (now() + interval '5 hours')::date
+      `;
+      if (Number(todayDone[0]?.n ?? 0) >= dailyCap) {
+        throw new AppError(`Aaj ka task limit (${dailyCap}) poora ho gaya. Kal try karo.`);
+      }
       const rows = await sql<{
         id: number;
         title: string;
@@ -395,6 +404,10 @@ export const completeTask = createServerFn({ method: "POST" })
         String(task.id),
       );
       await maybeQualifyReferral(sql, context.userId);
+      await sql`
+        update app_profiles set xp = coalesce(xp, 0) + 10, updated_at = now()
+        where user_id = ${context.userId}
+      `;
       await notify(
         sql,
         context.userId,
@@ -422,7 +435,24 @@ export const claimDaily = createServerFn({ method: "POST" })
       `;
       const yesterday = yesterdayRows[0]?.d;
       const continued = profile.lastDailyClaim === yesterday;
-      const streak = continued ? profile.dailyStreak + 1 : 1;
+      let usedFreeze = false;
+      let streak = continued ? profile.dailyStreak + 1 : 1;
+      if (!continued && profile.dailyStreak > 0) {
+        const freezeOn = await getSetting(sql, "streak_freeze_enabled", "1");
+        if (freezeOn === "1") {
+          const fr = await sql<{ streak_freezes: number }>`
+            select coalesce(streak_freezes, 0)::int as streak_freezes from app_profiles where user_id = ${context.userId}
+          `;
+          const left = Number(fr[0]?.streak_freezes ?? 0);
+          if (left > 0) {
+            streak = profile.dailyStreak + 1;
+            usedFreeze = true;
+            await sql`
+              update app_profiles set streak_freezes = streak_freezes - 1 where user_id = ${context.userId} and streak_freezes > 0
+            `;
+          }
+        }
+      }
       const dayNumber = ((streak - 1) % status.schedule.length) + 1;
       const points = status.schedule[dayNumber - 1] ?? 100;
 
@@ -486,14 +516,21 @@ export const getReferralInfo = createServerFn({ method: "POST" })
       order by r.created_at desc
       limit 20
     `;
+    const l2 = await sql<{ earned: number }>`
+      select coalesce(sum(amount), 0)::int as earned from points_transactions
+      where user_id = ${context.userId} and type = 'referral_l2_reward'
+    `;
+    const l2Reward = await getSettingInt(sql, "referral_l2_reward", 10);
     return {
       code: profile.referralCode,
       telegramLink: `https://t.me/${bot}?start=${profile.referralCode}`,
       reward,
+      l2Reward,
       qualifyTasks: qualify,
       total: Number(stats[0]?.total ?? 0),
       active: Number(stats[0]?.active ?? 0),
       earned: Number(stats[0]?.earned ?? 0),
+      l2Earned: Number(l2[0]?.earned ?? 0),
       recent: recent.map((r) => ({
         name: r.display_name ?? "Member",
         status: r.status,
@@ -896,6 +933,8 @@ export const updateProfileSettings = createServerFn({ method: "POST" })
     z.object({
       language: z.enum(["en", "ur"]).optional(),
       notificationsEnabled: z.boolean().optional(),
+      displayName: z.string().min(2).max(40).optional(),
+      avatarUrl: z.string().max(500).optional().nullable(),
     }),
   )
   .handler(async ({ context, data }) => {
@@ -906,6 +945,14 @@ export const updateProfileSettings = createServerFn({ method: "POST" })
     }
     if (typeof data.notificationsEnabled === "boolean") {
       await sql`update app_profiles set notifications_enabled = ${data.notificationsEnabled}, updated_at = now() where user_id = ${context.userId}`;
+    }
+    if (data.displayName) {
+      const name = data.displayName.trim();
+      await sql`update app_profiles set display_name = ${name}, updated_at = now() where user_id = ${context.userId}`;
+    }
+    if (data.avatarUrl !== undefined) {
+      const url = (data.avatarUrl ?? "").trim() || null;
+      await sql`update app_profiles set avatar_url = ${url}, updated_at = now() where user_id = ${context.userId}`;
     }
     return { ok: true };
   });
@@ -1024,6 +1071,100 @@ export const replyTicket = createServerFn({ method: "POST" })
     await sql`update support_tickets set status = 'open', updated_at = now() where id = ${data.id}`;
     return { ok: true };
   });
+
+
+
+/** Daily lucky spin — once per calendar day. */
+export const spinDaily = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    rateLimit(context.userId, "spin", 5, 60_000);
+    const sql = await getSql();
+    await ensureProfile(context.userId);
+    const enabled = await getSetting(sql, "spin_enabled", "1");
+    if (enabled !== "1") throw new AppError("Spin is disabled.");
+    const today = new Date().toISOString().slice(0, 10);
+    const existing = await sql`select id from spin_claims where user_id = ${context.userId} and claim_date = ${today}::date`;
+    if (existing[0]) throw new AppError("Aaj ka spin pehle use ho chuka hai.");
+    const prizesRaw = await getSetting(sql, "spin_prizes", "10,20,30,50,80,100,150");
+    const prizes = prizesRaw.split(",").map((x) => Number(x.trim())).filter((n) => Number.isFinite(n) && n > 0);
+    if (!prizes.length) throw new AppError("Spin prizes not configured.");
+    const pts = prizes[Math.floor(Math.random() * prizes.length)]!;
+    await sql`
+      insert into spin_claims (user_id, claim_date, points) values (${context.userId}, ${today}::date, ${pts})
+    `;
+    await sql`update app_profiles set last_spin_date = ${today}::date, updated_at = now() where user_id = ${context.userId}`;
+    const balance = await creditPoints(sql, context.userId, pts, "spin_reward", "Daily lucky spin", "spin", today);
+    await notify(sql, context.userId, "spin", "Lucky spin!", `+${pts} points from today's spin.`);
+    return { points: pts, balance };
+  });
+
+export const getSpinStatus = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    const today = new Date().toISOString().slice(0, 10);
+    const row = await sql<{ points: number }>`
+      select points from spin_claims where user_id = ${context.userId} and claim_date = ${today}::date limit 1
+    `;
+    const prizesRaw = await getSetting(sql, "spin_prizes", "10,20,30,50,80,100,150");
+    const prizes = prizesRaw.split(",").map((x) => Number(x.trim())).filter((n) => Number.isFinite(n) && n > 0);
+    return {
+      usedToday: Boolean(row[0]),
+      todayPoints: row[0]?.points ?? null,
+      prizes,
+      enabled: (await getSetting(sql, "spin_enabled", "1")) === "1",
+    };
+  });
+
+/** Claim weekly leaderboard bonus if ranked top 10. */
+export const claimLeaderboardBonus = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    await ensureProfile(context.userId);
+    const now = new Date();
+    const weekKey = `${now.getUTCFullYear()}-W${Math.ceil((((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 1)) / 86400000) + 1) / 7)}`;
+    const already = await sql`
+      select id from leaderboard_claims where user_id = ${context.userId} and period = 'weekly' and period_key = ${weekKey}
+    `;
+    if (already[0]) throw new AppError("Is week ka rank bonus pehle claim ho chuka.");
+    const board = await sql<{ user_id: string; pts: number }>`
+      select user_id, lifetime_earned::int as pts from app_profiles
+      where is_demo = false and status = 'active'
+      order by lifetime_earned desc limit 10
+    `;
+    const idx = board.findIndex((r) => r.user_id === context.userId);
+    if (idx < 0) throw new AppError("Top 10 mein nahi ho — bonus ke liye rank improve karo.");
+    const rewardsRaw = await getSetting(sql, "leaderboard_weekly_rewards", "500,300,200,100,100,50,50,50,50,50");
+    const rewards = rewardsRaw.split(",").map((x) => Number(x.trim()));
+    const pts = rewards[idx] ?? 50;
+    if (!pts || pts <= 0) throw new AppError("No reward for this rank.");
+    await sql`
+      insert into leaderboard_claims (user_id, period, period_key, rank, points)
+      values (${context.userId}, 'weekly', ${weekKey}, ${idx + 1}, ${pts})
+    `;
+    const balance = await creditPoints(
+      sql, context.userId, pts, "leaderboard_bonus", `Weekly rank #${idx + 1}`, "leaderboard", weekKey,
+    );
+    await notify(sql, context.userId, "leaderboard", "Rank bonus!", `Top ${idx + 1} — +${pts} points.`);
+    return { rank: idx + 1, points: pts, balance };
+  });
+
+export function computeLevel(xp: number) {
+  const tiers = [
+    { name: "Bronze", need: 0, emoji: "🥉", bonusPct: 0 },
+    { name: "Silver", need: 50, emoji: "🥈", bonusPct: 5 },
+    { name: "Gold", need: 200, emoji: "🥇", bonusPct: 10 },
+    { name: "Diamond", need: 500, emoji: "💎", bonusPct: 15 },
+  ];
+  let current = tiers[0]!;
+  for (const t of tiers) {
+    if (xp >= t.need) current = t;
+  }
+  const next = tiers.find((t) => t.need > xp) ?? null;
+  return { ...current, xp, next, progress: next ? Math.min(100, Math.round(((xp - current.need) / (next.need - current.need)) * 100)) : 100 };
+}
 
 export const getMeAdminFlag = createServerFn({ method: "POST" })
   .middleware([authMiddleware])

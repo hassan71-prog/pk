@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { AppShell, Disclaimer } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserButton } from "@/lib/auth/gates";
@@ -56,8 +57,8 @@ function ProfilePage() {
   return (
     <AppShell title="Profile" points={p?.pointsBalance} unread={dash.data?.unread}>
       <Card className="flex items-center gap-3 rounded-2xl">
-        {user.profileImageUrl ? (
-          <img src={user.profileImageUrl} alt="" className="size-14 rounded-full object-cover" />
+        {(p?.avatarUrl || user.profileImageUrl) ? (
+          <img src={p?.avatarUrl || user.profileImageUrl || ""} alt="" className="size-14 rounded-full object-cover" />
         ) : (
           <span className="grid size-14 place-items-center rounded-full bg-surface-2 text-lg font-semibold">
             {(p?.displayName ?? "M").charAt(0)}
@@ -72,6 +73,41 @@ function ProfilePage() {
           </div>
         </div>
       </Card>
+      <Button className="mt-3 w-full" variant="secondary" onClick={() => {
+        setDisplayName(p?.displayName ?? "");
+        setAvatarUrl(p?.avatarUrl ?? "");
+        setEditOpen((v) => !v);
+      }}>
+        {editOpen ? "Close edit" : "Edit profile"}
+      </Button>
+      {editOpen ? (
+        <Card className="mt-3 space-y-3">
+          <p className="text-sm font-semibold">Edit profile</p>
+          <Input
+            placeholder="Display name"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            maxLength={40}
+          />
+          <Input
+            placeholder="Avatar image URL (optional)"
+            value={avatarUrl}
+            onChange={(e) => setAvatarUrl(e.target.value)}
+          />
+          <Button
+            className="w-full"
+            disabled={save.isPending || displayName.trim().length < 2}
+            onClick={() =>
+              save.mutate({
+                displayName: displayName.trim(),
+                avatarUrl: avatarUrl.trim() || null,
+              })
+            }
+          >
+            Save profile
+          </Button>
+        </Card>
+      ) : null}
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Card className="p-3">
           <p className="text-[11px] text-muted">Points</p>
