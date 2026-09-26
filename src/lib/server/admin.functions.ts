@@ -900,6 +900,10 @@ export const adminSaveSettings = createServerFn({ method: "POST" })
       "platform_name",
       "points_to_pkr",
       "withdrawals_opens_at",
+      "spin_enabled",
+      "spin_prizes",
+      "leaderboard_bonus_opens_at",
+      "leaderboard_weekly_rewards",
     ]);
     for (const [key, value] of Object.entries(data.entries)) {
       if (!allowed.has(key)) continue;

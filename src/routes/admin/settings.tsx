@@ -67,6 +67,21 @@ const SETTINGS: { key: string; label: string; hint: string }[] = [
     label: "Support email",
     hint: "Shown on legal / support pages",
   },
+  {
+    key: "spin_prizes",
+    label: "Spin prizes (comma list)",
+    hint: "0 = Try again. e.g. 0,10,20,30,50,80,100,150",
+  },
+  {
+    key: "leaderboard_bonus_opens_at",
+    label: "Rank bonus opens at (ISO datetime)",
+    hint: "e.g. 2026-09-28T10:00:00+05:00 — Top 10 can claim for 7 days, once",
+  },
+  {
+    key: "leaderboard_weekly_rewards",
+    label: "Rank bonus points (Top 1–10)",
+    hint: "e.g. 500,300,200,100,100,50,50,50,50,50",
+  },
 ];
 
 function Page() {

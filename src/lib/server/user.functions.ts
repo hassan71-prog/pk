@@ -578,18 +578,18 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       data.period === "all"
         ? `select user_id, display_name, username, avatar_url, lifetime_earned as points, is_demo
            from app_profiles
-           where status = 'active' and is_demo = false and lifetime_earned > 0
+           where status = 'active' and lifetime_earned > 0
            order by lifetime_earned desc, created_at asc
-           limit 50`
+           limit 100`
         : `select p.user_id, p.display_name, p.username, p.avatar_url,
                   coalesce(sum(tx.amount),0)::int as points, p.is_demo
            from app_profiles p
            join points_transactions tx on tx.user_id = p.user_id and tx.amount > 0 ${windowSql}
-           where p.status = 'active' and p.is_demo = false
+           where p.status = 'active'
            group by p.user_id, p.display_name, p.username, p.avatar_url, p.is_demo, p.created_at
            having coalesce(sum(tx.amount),0) > 0
            order by points desc, p.created_at asc
-           limit 50`,
+           limit 100`,
     );
 
     const entries: LeaderboardEntry[] = rows.map((r, i) => ({
@@ -1078,25 +1078,32 @@ export const replyTicket = createServerFn({ method: "POST" })
 export const spinDaily = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
-    rateLimit(context.userId, "spin", 5, 60_000);
+    rateLimit(context.userId, "spin", 8, 60_000);
     const sql = await getSql();
     await ensureProfile(context.userId);
     const enabled = await getSetting(sql, "spin_enabled", "1");
     if (enabled !== "1") throw new AppError("Spin is disabled.");
     const today = new Date().toISOString().slice(0, 10);
     const existing = await sql`select id from spin_claims where user_id = ${context.userId} and claim_date = ${today}::date`;
-    if (existing[0]) throw new AppError("Aaj ka spin pehle use ho chuka hai.");
-    const prizesRaw = await getSetting(sql, "spin_prizes", "10,20,30,50,80,100,150");
-    const prizes = prizesRaw.split(",").map((x) => Number(x.trim())).filter((n) => Number.isFinite(n) && n > 0);
+    if (existing[0]) throw new AppError("Aaj ka free spin use ho chuka. Kal try again.");
+    // 0 = Try again (does not consume the daily spin)
+    const prizesRaw = await getSetting(sql, "spin_prizes", "0,10,20,30,50,80,100,150");
+    const prizes = prizesRaw
+      .split(",")
+      .map((x) => Number(x.trim()))
+      .filter((n) => Number.isFinite(n) && n >= 0);
     if (!prizes.length) throw new AppError("Spin prizes not configured.");
     const pts = prizes[Math.floor(Math.random() * prizes.length)]!;
+    if (pts === 0) {
+      return { points: 0, tryAgain: true as const, balance: null as number | null };
+    }
     await sql`
       insert into spin_claims (user_id, claim_date, points) values (${context.userId}, ${today}::date, ${pts})
     `;
     await sql`update app_profiles set last_spin_date = ${today}::date, updated_at = now() where user_id = ${context.userId}`;
     const balance = await creditPoints(sql, context.userId, pts, "spin_reward", "Daily lucky spin", "spin", today);
     await notify(sql, context.userId, "spin", "Lucky spin!", `+${pts} points from today's spin.`);
-    return { points: pts, balance };
+    return { points: pts, tryAgain: false as const, balance };
   });
 
 export const getSpinStatus = createServerFn({ method: "POST" })
@@ -1107,8 +1114,11 @@ export const getSpinStatus = createServerFn({ method: "POST" })
     const row = await sql<{ points: number }>`
       select points from spin_claims where user_id = ${context.userId} and claim_date = ${today}::date limit 1
     `;
-    const prizesRaw = await getSetting(sql, "spin_prizes", "10,20,30,50,80,100,150");
-    const prizes = prizesRaw.split(",").map((x) => Number(x.trim())).filter((n) => Number.isFinite(n) && n > 0);
+    const prizesRaw = await getSetting(sql, "spin_prizes", "0,10,20,30,50,80,100,150");
+    const prizes = prizesRaw
+      .split(",")
+      .map((x) => Number(x.trim()))
+      .filter((n) => Number.isFinite(n) && n >= 0);
     return {
       usedToday: Boolean(row[0]),
       todayPoints: row[0]?.points ?? null,
@@ -1123,16 +1133,30 @@ export const claimLeaderboardBonus = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const sql = await getSql();
     await ensureProfile(context.userId);
-    const now = new Date();
-    const weekKey = `${now.getUTCFullYear()}-W${Math.ceil((((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 1)) / 86400000) + 1) / 7)}`;
+    const opensAt = (await getSetting(sql, "leaderboard_bonus_opens_at", "")).trim();
+    if (!opensAt) {
+      throw new AppError("Rank bonus abhi band hai. Admin date set karega.");
+    }
+    const openTime = new Date(opensAt).getTime();
+    if (!Number.isFinite(openTime) || Date.now() < openTime) {
+      throw new AppError(
+        `Rank bonus ${new Date(opensAt).toLocaleString("en-PK")} ke baad open hoga.`,
+      );
+    }
+    // Window: 7 days from opens_at
+    if (Date.now() > openTime + 7 * 24 * 60 * 60 * 1000) {
+      throw new AppError("Is week ka rank bonus window khatam. Next schedule ka wait karo.");
+    }
+    const weekKey = opensAt.slice(0, 16); // unique per admin schedule
     const already = await sql`
       select id from leaderboard_claims where user_id = ${context.userId} and period = 'weekly' and period_key = ${weekKey}
     `;
-    if (already[0]) throw new AppError("Is week ka rank bonus pehle claim ho chuka.");
+    if (already[0]) throw new AppError("Is schedule ka rank bonus pehle claim ho chuka (hafta mein 1 dafa).");
     const board = await sql<{ user_id: string; pts: number }>`
       select user_id, lifetime_earned::int as pts from app_profiles
-      where is_demo = false and status = 'active'
-      order by lifetime_earned desc limit 10
+      where status = 'active'
+      order by lifetime_earned desc, created_at asc
+      limit 10
     `;
     const idx = board.findIndex((r) => r.user_id === context.userId);
     if (idx < 0) throw new AppError("Top 10 mein nahi ho — bonus ke liye rank improve karo.");
@@ -1149,6 +1173,32 @@ export const claimLeaderboardBonus = createServerFn({ method: "POST" })
     );
     await notify(sql, context.userId, "leaderboard", "Rank bonus!", `Top ${idx + 1} — +${pts} points.`);
     return { rank: idx + 1, points: pts, balance };
+  });
+
+export const getLeaderboardBonusStatus = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    const opensAt = (await getSetting(sql, "leaderboard_bonus_opens_at", "")).trim() || null;
+    let open = false;
+    let ended = false;
+    if (opensAt) {
+      const t0 = new Date(opensAt).getTime();
+      if (Number.isFinite(t0)) {
+        open = Date.now() >= t0 && Date.now() <= t0 + 7 * 24 * 60 * 60 * 1000;
+        ended = Date.now() > t0 + 7 * 24 * 60 * 60 * 1000;
+      }
+    }
+    const weekKey = opensAt ? opensAt.slice(0, 16) : "";
+    let claimed = false;
+    if (weekKey) {
+      const row = await sql`
+        select id from leaderboard_claims
+        where user_id = ${context.userId} and period = 'weekly' and period_key = ${weekKey}
+      `;
+      claimed = Boolean(row[0]);
+    }
+    return { opensAt, open, ended, claimed };
   });
 
 export function computeLevel(xp: number) {

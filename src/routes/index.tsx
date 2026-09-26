@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ArrowRight, Gift, ClipboardList, Users, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell, Disclaimer } from "@/components/app-shell";
+import { SpinWheel } from "@/components/spin-wheel";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import {
   claimDaily,
   claimLeaderboardBonus,
   getDashboard,
+  getLeaderboardBonusStatus,
   getSpinStatus,
   spinDaily,
 } from "@/lib/server/user.functions";
@@ -110,14 +112,36 @@ function Dashboard() {
     queryKey: ["spin-status"],
     queryFn: () => getSpinStatus(),
   });
+  const lbStatus = useQuery({
+    queryKey: ["lb-bonus-status"],
+    queryFn: () => getLeaderboardBonusStatus(),
+  });
+  const [spinning, setSpinning] = useState(false);
+  const [spinResult, setSpinResult] = useState<number | null>(null);
   const spin = useMutation({
     mutationFn: () => spinDaily(),
-    onSuccess: (res) => {
-      haptic("medium");
-      toast.success(`Lucky spin: +${res.points} points!`);
-      void qc.invalidateQueries();
+    onMutate: () => {
+      setSpinning(true);
+      setSpinResult(null);
     },
-    onError: (err) => toast.error(errorMessage(err)),
+    onSuccess: (res) => {
+      // keep spinning animation ~3s then show result
+      window.setTimeout(() => {
+        setSpinning(false);
+        setSpinResult(res.points);
+        haptic("medium");
+        if (res.tryAgain || res.points === 0) {
+          toast.message("Try again — wheel pe dobara spin karo!");
+        } else {
+          toast.success(`Lucky spin: +${res.points} coins!`);
+          void qc.invalidateQueries();
+        }
+      }, 3200);
+    },
+    onError: (err) => {
+      setSpinning(false);
+      toast.error(errorMessage(err));
+    },
   });
   const lbBonus = useMutation({
     mutationFn: () => claimLeaderboardBonus(),
@@ -216,36 +240,46 @@ function Dashboard() {
         </div>
       </Card>
 
-      {/* Lucky Spin */}
-      <Card className="mt-3 rounded-2xl border-warning/30 bg-gradient-to-r from-amber-500/10 to-surface p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-bold">Lucky Spin 🎡</p>
-            <p className="text-[11px] text-muted">
-              {spinStatus.data?.usedToday
-                ? `Aaj +${spinStatus.data.todayPoints} mil chuka`
-                : "Roz ek free spin"}
-            </p>
-          </div>
-          <Button
-            size="sm"
-            className="shrink-0 font-bold"
-            disabled={spin.isPending || spinStatus.data?.usedToday || spinStatus.data?.enabled === false}
-            onClick={() => spin.mutate()}
-          >
-            {spinStatus.data?.usedToday ? "Done" : spin.isPending ? "…" : "Spin"}
-          </Button>
-        </div>
+      {/* Lucky Spin Wheel */}
+      <Card className="mt-3 rounded-2xl border-warning/30 bg-gradient-to-b from-amber-500/10 to-surface p-4">
+        <p className="text-center text-sm font-bold">Lucky Spin 🎡</p>
+        <p className="mb-3 text-center text-[11px] text-muted">
+          {spinStatus.data?.usedToday
+            ? `Aaj +${spinStatus.data.todayPoints} coins mil chuke — kal try again`
+            : "Spin karo — coins ya Try Again"}
+        </p>
+        <SpinWheel
+          prizes={spinStatus.data?.prizes ?? [0, 10, 20, 30, 50, 80, 100, 150]}
+          spinning={spinning}
+          resultPoints={spinResult}
+          usedToday={spinStatus.data?.usedToday}
+          disabled={spinStatus.data?.enabled === false}
+          onSpin={() => spin.mutate()}
+        />
       </Card>
 
-      <Button
-        variant="outline"
-        className="mt-2 w-full text-xs"
-        disabled={lbBonus.isPending}
-        onClick={() => lbBonus.mutate()}
-      >
-        {lbBonus.isPending ? "Checking…" : "Claim weekly rank bonus (Top 10)"}
-      </Button>
+      <Card className="mt-2 rounded-2xl p-3">
+        <p className="text-xs font-semibold">Weekly rank bonus (Top 10)</p>
+        <p className="mt-1 text-[11px] text-muted">
+          {!lbStatus.data?.opensAt
+            ? "Admin abhi date set nahi ki"
+            : lbStatus.data.claimed
+              ? "Is schedule ka bonus claim ho chuka"
+              : lbStatus.data.open
+                ? "Ab claim kar sakte ho (hafta mein 1 dafa)"
+                : lbStatus.data.ended
+                  ? "Window band — next schedule ka wait"
+                  : `Opens ${new Date(lbStatus.data.opensAt).toLocaleString("en-PK")}`}
+        </p>
+        <Button
+          variant="outline"
+          className="mt-2 w-full text-xs"
+          disabled={lbBonus.isPending || !lbStatus.data?.open || lbStatus.data?.claimed}
+          onClick={() => lbBonus.mutate()}
+        >
+          {lbBonus.isPending ? "Claiming…" : "Claim rank bonus"}
+        </Button>
+      </Card>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Stat label="Today" value={`+${formatPoints(d.todayEarned)}`} />
