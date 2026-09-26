@@ -11,6 +11,7 @@ import {
   adminBulkUpdateWithdrawals,
   adminGetWithdrawalStatus,
   adminListWithdrawals,
+  adminSaveSettings,
   adminSetWithdrawalStatus,
   adminUpdateWithdrawal,
 } from "@/lib/server/admin.functions";
@@ -45,13 +46,35 @@ function Page() {
   }, [withdrawalStatus.data]);
 
   const saveConfig = useMutation({
-    mutationFn: (p: { open?: boolean; opensAt?: string | null; pointsToPkr?: string }) =>
-      adminSetWithdrawalStatus({ data: p }),
+    mutationFn: async (p: { open?: boolean; opensAt?: string | null; pointsToPkr?: string }) => {
+      // 1) Rate + schedule via settings (same as Settings page — more reliable)
+      const entries: Record<string, string> = {};
+      if (p.pointsToPkr !== undefined) entries.points_to_pkr = String(p.pointsToPkr);
+      if (p.opensAt !== undefined) entries.withdrawals_opens_at = p.opensAt?.trim() || "";
+      if (Object.keys(entries).length > 0) {
+        await adminSaveSettings({ data: { entries } });
+      }
+      // 2) Open flag via dedicated endpoint
+      if (typeof p.open === "boolean") {
+        await adminSetWithdrawalStatus({ data: { open: p.open } });
+      } else if (Object.keys(entries).length === 0) {
+        // nothing else — still call set with full payload for compatibility
+        await adminSetWithdrawalStatus({ data: p });
+      }
+      return { ok: true };
+    },
     onSuccess: () => {
       toast.success("Saved");
       void qc.invalidateQueries({ queryKey: ["admin-withdrawal-status"] });
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => {
+      const msg = errorMessage(e);
+      if (msg === "Unauthorized" || /unauthorized/i.test(msg)) {
+        toast.error("Session expired — dobara login karke Admin kholo, phir Save karo.");
+      } else {
+        toast.error(msg);
+      }
+    },
   });
 
   const list = useQuery({ queryKey: ["admin-wd"], queryFn: () => adminListWithdrawals() });

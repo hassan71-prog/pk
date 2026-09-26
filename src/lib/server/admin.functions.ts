@@ -1063,8 +1063,8 @@ export const adminSetWithdrawalStatus = createServerFn({ method: "POST" })
   .validator(
     z.object({
       open: z.boolean().optional(),
-      opensAt: z.string().max(40).optional().nullable(),
-      pointsToPkr: z.string().max(20).optional(),
+      opensAt: z.union([z.string().max(80), z.null()]).optional(),
+      pointsToPkr: z.union([z.string().max(32), z.number()]).optional(),
     }),
   )
   .handler(async ({ context, data }) => {
@@ -1079,7 +1079,7 @@ export const adminSetWithdrawalStatus = createServerFn({ method: "POST" })
       `;
     }
     if (data.opensAt !== undefined) {
-      const v = data.opensAt?.trim() || "";
+      const v = data.opensAt == null ? "" : String(data.opensAt).trim();
       await sql`
         insert into settings (key, value, updated_at)
         values ('withdrawals_opens_at', ${v}, now())
@@ -1096,14 +1096,18 @@ export const adminSetWithdrawalStatus = createServerFn({ method: "POST" })
       `;
     }
 
-    await audit(
-      sql,
-      context.userId,
-      "withdrawals.config",
-      "settings",
-      "withdrawals",
-      JSON.stringify(data),
-    );
+    try {
+      await audit(
+        sql,
+        context.userId,
+        "withdrawals.config",
+        "settings",
+        "withdrawals",
+        JSON.stringify(data),
+      );
+    } catch {
+      /* audit must not block config save */
+    }
 
     return { ok: true };
   });
