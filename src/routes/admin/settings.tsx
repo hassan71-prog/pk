@@ -6,7 +6,12 @@ import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { adminGetSettings, adminPurgeDemo, adminSaveSettings } from "@/lib/server/admin.functions";
+import {
+  adminGetSettings,
+  adminPurgeDemo,
+  adminRestoreDemoUsers,
+  adminSaveSettings,
+} from "@/lib/server/admin.functions";
 import { errorMessage } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/settings")({ component: Page });
@@ -134,9 +139,21 @@ function Page() {
         <p className="mt-1 text-xs text-muted">
           Deletes rows flagged is_demo (sample leaderboard faces, sample tasks, sample sponsors).
         </p>
-        <Button className="mt-3" variant="danger" onClick={() => purge.mutate()} disabled={purge.isPending}>
-          Purge demo data
-        </Button>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button variant="danger" onClick={() => purge.mutate()} disabled={purge.isPending}>
+            {purge.isPending ? "Purging…" : "Purge demo data"}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => restoreDemo.mutate()}
+            disabled={restoreDemo.isPending}
+          >
+            {restoreDemo.isPending ? "Restoring…" : "Restore 100 fake rank users"}
+          </Button>
+        </div>
+        <p className="mt-2 text-[11px] text-subtle">
+          Restore sirf leaderboard fake users (is_demo) wapas laata hai — real users safe rehte hain.
+        </p>
       </Card>
     </AdminShell>
   );

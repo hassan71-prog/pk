@@ -1032,6 +1032,52 @@ export const adminPurgeDemo = createServerFn({ method: "POST" })
     await audit(sql, context.userId, "demo.purge", "system", null, "Removed is_demo records");
     return { ok: true };
   });
+
+/** Re-seed 100 fake leaderboard users (is_demo = true only). */
+export const adminRestoreDemoUsers = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const names = [
+      "Ahmed","Ali","Hassan","Hussain","Bilal","Usman","Omar","Zain","Hamza","Faisal",
+      "Ayesha","Fatima","Sana","Maryam","Hira","Iqra","Zara","Noor","Amina","Sara",
+      "Imran","Kamran","Naveed","Asad","Waqas","Shahid","Junaid","Rizwan","Tariq","Sohail",
+      "Rabia","Nida","Saima","Kinza","Mehwish","Laiba","Areeba","Maham","Esha","Hania",
+      "Danish","Salman","Adnan","Farhan","Yasir","Kashif","Noman","Rehan","Sameer","Arslan",
+      "Anaya","Inaya","Zoya","Alina","Hoorain","Aiza","Rida","Mishal","Dua","Eshal",
+      "Haris","Ibrahim","Yousuf","Musa","Isa","Adam","Suleman","Dawood","Idrees","Yahya",
+      "Mahnoor","Aiman","Bushra","Nadia","Samina","Uzma","Farah","Shazia","Naila","Lubna",
+      "Saad","Anas","Umer","Zubair","Shahzaib","Moiz","Arham","Rayyan","Ayan","Murtaza",
+      "Amna","Hafsa","Khadija","Javeria","Tania","Irum","Saba","Komal","Neha","Pashmina",
+    ];
+    let n = 0;
+    for (let i = 0; i < names.length; i++) {
+      const idx = i + 1;
+      const uid = `demo-user-${String(idx).padStart(3, "0")}`;
+      let pts = 50000 - idx * 370 + (idx % 7) * 50;
+      if (pts < 100) pts = 100 + idx;
+      const code = `DM${String(idx).padStart(4, "0")}`;
+      const name = `${names[i]} ${idx}`;
+      await sql`
+        insert into app_profiles (
+          user_id, display_name, referral_code, lifetime_earned, points_balance, is_demo, status
+        ) values (
+          ${uid}, ${name}, ${code}, ${pts}, ${pts}, true, 'active'
+        )
+        on conflict (user_id) do update set
+          display_name = excluded.display_name,
+          lifetime_earned = excluded.lifetime_earned,
+          points_balance = excluded.points_balance,
+          is_demo = true,
+          status = 'active',
+          updated_at = now()
+      `;
+      n += 1;
+    }
+    await audit(sql, context.userId, "demo.restore_users", "system", null, `Restored ${n} demo users`);
+    return { ok: true, count: n };
+  });
   export const adminGetWithdrawalStatus = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
