@@ -101,3 +101,12 @@
   color: #1a1000;
   font-weight: 700;
 }
+
+.btn-glow {
+  box-shadow: 0 0 20px color-mix(in oklab, #22c55e 40%, transparent);
+}
+
+.card-glow {
+  border-color: color-mix(in oklab, #22c55e 25%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, #22c55e 8%, transparent), 0 8px 28px rgba(0, 0, 0, 0.35);
+}

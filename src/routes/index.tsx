@@ -52,12 +52,10 @@ function Landing() {
     <main className="app-bg mx-auto flex min-h-dvh w-full max-w-lg flex-col px-5 py-8">
       <Logo />
       <h1 className="mt-10 font-display text-4xl font-semibold leading-[1.1] tracking-tight">
-        Tasks that pay in platform points
+        Complete tasks. Earn coins. Rank up.
       </h1>
       <p className="mt-4 text-sm leading-relaxed text-muted">
-        Earn.pk is a rewards app for people in Pakistan. Join sponsored campaigns,
-        complete verifiable tasks, and redeem through live reward catalogues — never a
-        mining scheme, never a guaranteed return.
+        Pakistan ka rewards app — daily claim, tasks, leaderboard. Points platform rewards hain, cash ya investment nahi.
       </p>
       <div className="mt-8 space-y-3">
         {GROK_PROVIDERS.map((p) => (

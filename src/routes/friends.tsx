@@ -27,7 +27,7 @@ function FriendsPage() {
     queryFn: () => getReferralInfo({ data: identityPayload(user) }),
   });
 
-  if (isPending) return <AppShell title="Friends"><Skeleton className="h-40 rounded-xl" /></AppShell>;
+  if (isPending) return <AppShell title="Invite Friends"><Skeleton className="h-40 rounded-xl" /></AppShell>;
   if (!user) return <RedirectToSignIn />;
 
   const d = info.data;
@@ -42,15 +42,36 @@ function FriendsPage() {
 
   async function share() {
     if (!webLink) return;
+    const text = `Earn.pk pe join karo aur tasks se points kamao! Mera referral link: ${webLink}`;
     if (navigator.share) {
-      await navigator.share({ title: "TaskEarn PK", text: "Join me on TaskEarn PK", url: webLink });
-    } else {
-      await copy();
+      try {
+        await navigator.share({ title: "Earn.pk", text, url: webLink });
+        return;
+      } catch { /* cancelled */ }
     }
+    await copy();
+  }
+
+  function shareWhatsApp() {
+    if (!webLink) return;
+    const text = encodeURIComponent(
+      `Earn.pk pe join karo aur tasks complete karke points kamao!\n${webLink}`,
+    );
+    window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
+  }
+
+  function shareTelegram() {
+    if (!webLink) return;
+    const text = encodeURIComponent("Earn.pk pe join karo!");
+    window.open(
+      `https://t.me/share/url?url=${encodeURIComponent(webLink)}&text=${text}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   }
 
   return (
-    <AppShell title="Friends" points={dash.data?.profile.pointsBalance} unread={dash.data?.unread}>
+    <AppShell title="Invite Friends" points={dash.data?.profile.pointsBalance} unread={dash.data?.unread}>
       <p className="text-sm text-muted">
         Invite friends with your code. Rewards post only after they meet the qualification — currently{" "}
         {d?.qualifyTasks ?? 1} completed task{d?.qualifyTasks === 1 ? "" : "s"}. Self-referrals are blocked.
@@ -64,6 +85,12 @@ function FriendsPage() {
             Copy link
           </Button>
           <Button onClick={() => void share()}>Share</Button>
+          <Button variant="secondary" onClick={shareWhatsApp}>
+            WhatsApp
+          </Button>
+          <Button variant="secondary" onClick={shareTelegram}>
+            Telegram
+          </Button>
         </div>
         <p className="mt-3 text-xs text-subtle">Telegram: {d?.telegramLink}</p>
       </Card>

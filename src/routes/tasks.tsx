@@ -103,9 +103,9 @@ function TasksPage() {
 
   return (
     <AppShell title="Tasks" points={dash.data?.profile.pointsBalance} unread={dash.data?.unread}>
-      <p className="text-sm text-muted">
-        1) Open link → 2) Action complete → 3) Wait timer → 4) Claim points
-      </p>
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-xs text-muted">
+        <span className="font-semibold text-primary">How to earn:</span> Open link → complete action → wait timer → Claim 🪙
+      </div>
       <Input
         className="mt-3"
         placeholder="Search tasks..."
@@ -162,7 +162,7 @@ function TasksPage() {
                       href={href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2.5 text-sm font-medium text-primary-fg"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-fg shadow-[0_0_18px_rgba(34,197,94,0.35)]"
                       onClick={() => start.mutate(t.id)}
                     >
                       <ExternalLink className="size-4" />

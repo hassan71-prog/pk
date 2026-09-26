@@ -17,6 +17,18 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [oauthBusy, setOauthBusy] = useState(false);
+
+  async function onOAuth(providerId: string) {
+    if (oauthBusy || busy) return;
+    setOauthBusy(true);
+    try {
+      await signIn(providerId, { callbackURL: "/" });
+    } catch (err) {
+      toast.error(errorMessage(err));
+      setOauthBusy(false);
+    }
+  }
 
   if (isPending) {
     return <div className="app-bg min-h-dvh" />;
@@ -43,7 +55,7 @@ function Login() {
   return (
     <main className="app-bg mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-5 py-10">
       <Logo className="mb-8" />
-      <h1 className="font-display text-3xl font-semibold tracking-tight">Earn from real campaigns</h1>
+      <h1 className="font-display text-3xl font-bold tracking-tight">Earn <span className="text-primary">rewards</span> daily</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
         Complete sponsored tasks for Pakistani brands. Points are platform rewards — not a
         guaranteed payout, investment, or currency.
@@ -57,9 +69,10 @@ function Login() {
               type="button"
               variant="secondary"
               className="w-full"
-              onClick={() => signIn(p.providerId, { callbackURL: "/" })}
+              disabled={oauthBusy || busy}
+              onClick={() => void onOAuth(p.providerId)}
             >
-              Continue with {p.label}
+              {oauthBusy ? "Redirecting…" : `Continue with ${p.label}`}
             </Button>
           ))}
         </div>

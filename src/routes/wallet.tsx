@@ -54,36 +54,32 @@ function WalletPage() {
 
   return (
     <AppShell title="Wallet" points={w?.profile.pointsBalance}>
-      <div className="grid grid-cols-2 gap-2">
-        <Card>
-          <p className="text-xs text-muted">Balance</p>
-          <p className="text-xl font-semibold tabular">{formatPoints(w?.profile.pointsBalance ?? 0)}</p>
+      <Card className="rounded-2xl border-primary/25 bg-gradient-to-br from-primary/15 to-surface p-5">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted">Your balance</p>
+        <p className="mt-1 font-display text-4xl font-bold tabular text-primary">
+          🪙 {formatPoints(w?.profile.pointsBalance ?? 0)}
+        </p>
+        {w ? (
+          <p className="mt-1 text-xs text-muted">
+            ≈ Rs {(Number(w.profile.pointsBalance) * Number(w.pointsToPkr ?? 0.02)).toFixed(2)} · 1 pt = Rs{" "}
+            {Number(w.pointsToPkr ?? 0.02).toFixed(3)}
+          </p>
+        ) : null}
+      </Card>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <Card className="rounded-xl p-3 text-center">
+          <p className="text-[10px] text-muted">Earned</p>
+          <p className="text-sm font-bold tabular text-primary">{formatPoints(w?.profile.lifetimeEarned ?? 0)}</p>
         </Card>
-        <Card>
-          <p className="text-xs text-muted">Lifetime earned</p>
-          <p className="text-xl font-semibold tabular">{formatPoints(w?.profile.lifetimeEarned ?? 0)}</p>
+        <Card className="rounded-xl p-3 text-center">
+          <p className="text-[10px] text-muted">Redeemed</p>
+          <p className="text-sm font-bold tabular">{formatPoints(w?.profile.lifetimeRedeemed ?? 0)}</p>
         </Card>
-        <Card>
-          <p className="text-xs text-muted">Redeemed</p>
-          <p className="text-xl font-semibold tabular">{formatPoints(w?.profile.lifetimeRedeemed ?? 0)}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-muted">Pending</p>
-          <p className="text-xl font-semibold tabular">{formatPoints(w?.pendingPoints ?? 0)}</p>
+        <Card className="rounded-xl p-3 text-center">
+          <p className="text-[10px] text-muted">Pending</p>
+          <p className="text-sm font-bold tabular text-warning">{formatPoints(w?.pendingPoints ?? 0)}</p>
         </Card>
       </div>
-      {w ? (
-        <Card className="mt-4 space-y-1">
-          <p className="text-xs text-muted">Conversion rate</p>
-          <p className="text-sm font-medium">
-            1 point = Rs {Number(w.pointsToPkr ?? 0.02).toFixed(3)}
-          </p>
-          <p className="text-xs text-subtle">
-            Your balance ≈ Rs{" "}
-            {(Number(w.profile.pointsBalance) * Number(w.pointsToPkr ?? 0.02)).toFixed(2)}
-          </p>
-        </Card>
-      ) : null}
 
       {w?.comingSoon ? (
         <Card className="mt-3 border-warning/40 bg-warning/5">
