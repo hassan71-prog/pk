@@ -115,6 +115,14 @@ function Page() {
     onError: (e) => toast.error(errorMessage(e)),
   });
 
+  const restoreDemo = useMutation({
+    mutationFn: () => adminRestoreDemoUsers(),
+    onSuccess: (res) => {
+      toast.success(`${res.count} fake users ranks pe wapas aa gaye`);
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
   return (
     <AdminShell title="Settings">
       <div className="max-w-lg space-y-4">
