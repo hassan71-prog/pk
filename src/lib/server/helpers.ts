@@ -282,13 +282,14 @@ export async function ensureProfile(
     if (existing[0].status === "banned" || existing[0].status === "suspended") {
       throw new AppError("This account is not allowed to use Earn.pk.", 403);
     }
-    const display = identity?.name?.trim();
+    // Do NOT overwrite display_name/avatar from OAuth — Profile edit is source of truth.
+    // Only fill avatar if profile has none yet.
     const avatar = identity?.image ?? null;
-    if (display && display !== existing[0].display_name) {
+    if (avatar && !existing[0].avatar_url) {
       await sql`
         update app_profiles
-        set display_name = ${display}, avatar_url = coalesce(${avatar}, avatar_url), updated_at = now()
-        where user_id = ${userId} and is_demo = false
+        set avatar_url = ${avatar}, updated_at = now()
+        where user_id = ${userId} and is_demo = false and (avatar_url is null or avatar_url = '')
       `;
     }
     if (referralCode) {

@@ -143,7 +143,7 @@ function Dashboard() {
   if (dash.error) return <RedirectToSignIn />;
 
   const d = dash.data;
-  const greet = (user?.displayName ?? d.profile.displayName).split(" ")[0];
+  const greet = (d.profile.displayName || user?.displayName || "Member").split(" ")[0];
 
   return (
     <AppShell points={d.profile.pointsBalance} unread={d.unread}>
