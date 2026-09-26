@@ -329,13 +329,19 @@ export const completeTask = createServerFn({ method: "POST" })
       const needsToken =
         task.verification_type === "visit_token" || task.verification_type === "unique_token";
       if (needsToken) {
-        if (!data.token || data.token !== c.token) {
-          throw new AppError("Invalid task token. Restart the task and use the issued token.");
+        // Session already proves identity; optional client token must match if sent.
+        // (Fixes claim when UI cache lost the token after Open-link from list.)
+        if (data.token && c.token && data.token !== c.token) {
+          throw new AppError("Invalid task token. Open the link again, then claim.");
+        }
+        if (!c.token) {
+          throw new AppError("Task token missing. Open the link again to restart.");
         }
         const started = new Date(toIso(c.started_at)).getTime();
         const waitMs = Number(task.min_dwell_seconds) * 1000;
         if (Date.now() - started < waitMs) {
-          throw new AppError(`Please wait at least ${task.min_dwell_seconds} seconds after starting.`);
+          const left = Math.ceil((waitMs - (Date.now() - started)) / 1000);
+          throw new AppError(`Please wait ${left}s more, then claim.`);
         }
       }
 
@@ -1023,5 +1029,19 @@ export const getMeAdminFlag = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const p = await ensureProfile(context.userId);
-    return { isAdmin: p.isAdmin };
+    if (p.isAdmin) return { isAdmin: true };
+    // Same first-admin bootstrap as requireAdmin
+    const sql = await getSql();
+    const cnt = await sql<{ n: number }>`
+      select count(*)::int as n from app_profiles where is_admin = true and is_demo = false
+    `;
+    if (Number(cnt[0]?.n ?? 0) === 0) {
+      await sql`
+        update app_profiles set is_admin = true, updated_at = now()
+        where user_id = ${context.userId} and is_demo = false
+      `;
+      return { isAdmin: true };
+    }
+    return { isAdmin: false };
   });
+

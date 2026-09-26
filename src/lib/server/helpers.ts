@@ -253,7 +253,7 @@ export async function ensureProfile(
   const existing = await sql<ProfileRow>`select * from app_profiles where user_id = ${userId}`;
   if (existing[0]) {
     if (existing[0].status === "banned" || existing[0].status === "suspended") {
-      throw new AppError("This account is not allowed to use TaskEarn PK.", 403);
+      throw new AppError("This account is not allowed to use Earn.pk.", 403);
     }
     const display = identity?.name?.trim();
     const avatar = identity?.image ?? null;
@@ -312,7 +312,7 @@ export async function ensureProfile(
     sql,
     userId,
     "welcome",
-    "Welcome to TaskEarn PK",
+    "Welcome to Earn.pk",
     "Points are platform rewards funded by sponsored campaigns. Redemption depends on available rewards and campaign budgets.",
   );
 
@@ -323,8 +323,23 @@ export async function ensureProfile(
 
 export async function requireAdmin(userId: string): Promise<Profile> {
   const profile = await ensureProfile(userId);
-  if (!profile.isAdmin) throw new AppError("Admin access required.", 403);
-  return profile;
+  if (profile.isAdmin) return profile;
+  // First real admin bootstrap: if nobody is admin yet, promote this user.
+  const sql = await getSql();
+  const cnt = await sql<{ n: number }>`
+    select count(*)::int as n from app_profiles where is_admin = true and is_demo = false
+  `;
+  if (Number(cnt[0]?.n ?? 0) === 0) {
+    await sql`
+      update app_profiles set is_admin = true, updated_at = now()
+      where user_id = ${userId} and is_demo = false
+    `;
+    return { ...profile, isAdmin: true };
+  }
+  throw new AppError(
+    "Admin access required. Open Admin → Admins and enable is_admin for your account (or ask an existing admin).",
+    403,
+  );
 }
 
 export async function recordCampaignSpend(sql: Sql, campaignId: number | null) {
