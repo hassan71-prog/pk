@@ -22,6 +22,9 @@ function ProfilePage() {
   const { user, isPending } = useCurrentUserState();
   const qc = useQueryClient();
   const [installEvent, setInstallEvent] = useState<{ prompt: () => Promise<void> } | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const dash = useQuery({
     queryKey: ["dashboard"],
     enabled: !!user,
@@ -33,11 +36,19 @@ function ProfilePage() {
     queryFn: () => getMeAdminFlag(),
   });
   const save = useMutation({
-    mutationFn: (payload: { language?: "en" | "ur"; notificationsEnabled?: boolean }) =>
-      updateProfileSettings({ data: payload }),
+    mutationFn: (payload: {
+      language?: "en" | "ur";
+      notificationsEnabled?: boolean;
+      displayName?: string;
+      avatarUrl?: string | null;
+    }) => updateProfileSettings({ data: payload }),
     onSuccess: () => {
-      toast.success("Settings saved");
+      toast.success("Profile saved");
+      setEditOpen(false);
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Save failed");
     },
   });
 
