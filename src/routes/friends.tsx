@@ -238,7 +238,7 @@ function FriendsPage() {
                 <p className="truncate text-sm font-medium">
                   {r.name}
                   {r.isYou ? " (you)" : ""}
-                  {r.isDemo ? " · sample" : ""}
+                  
                 </p>
                 <p className="text-[11px] text-muted">{r.count} qualified · {r.prize}</p>
               </div>
