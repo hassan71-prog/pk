@@ -113,6 +113,26 @@ const SETTINGS: { key: string; label: string; hint: string }[] = [
     label: "Contest #4–10 prize",
     hint: "Default: Gift pack",
   },
+  {
+    key: "contest_ends_at",
+    label: "Contest ends at (ISO datetime)",
+    hint: "e.g. 2026-10-15T23:59:00+05:00 — after this ranking freezes for gifts",
+  },
+  {
+    key: "milestone_5",
+    label: "Milestone 5 friends (points)",
+    hint: "Bonus when 5 qualified referrals",
+  },
+  {
+    key: "milestone_10",
+    label: "Milestone 10 friends (points)",
+    hint: "Bonus when 10 qualified referrals",
+  },
+  {
+    key: "milestone_25",
+    label: "Milestone 25 friends (points)",
+    hint: "Bonus when 25 qualified referrals",
+  },
 ];
 
 function Page() {

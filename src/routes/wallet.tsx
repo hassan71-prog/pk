@@ -22,6 +22,7 @@ function WalletPage() {
   const [selected, setSelected] = useState<number | null>(null);
   const [method, setMethod] = useState<"easypaisa" | "jazzcash" | "bank" | "voucher">("easypaisa");
   const [account, setAccount] = useState("");
+  const [accountName, setAccountName] = useState("");
   const wallet = useQuery({
     queryKey: ["wallet"],
     enabled: !!user,
@@ -30,11 +31,17 @@ function WalletPage() {
   const redeem = useMutation({
     mutationFn: () =>
       createWithdrawal({
-        data: { rewardId: selected!, paymentMethod: method, accountDetails: account },
+        data: {
+          rewardId: selected!,
+          paymentMethod: method,
+          accountDetails: account,
+          accountName: accountName.trim() || undefined,
+        },
       }),
     onSuccess: () => {
-      toast.success("Redemption submitted for review");
+      toast.success("Request submitted — status: Pending (admin review)");
       setAccount("");
+      setAccountName("");
       void qc.invalidateQueries();
     },
     onError: (err) => toast.error(errorMessage(err)),
@@ -100,6 +107,37 @@ function WalletPage() {
         </Card>
       ) : null}
 
+      <Card className="mt-3 space-y-2 p-4">
+        <p className="text-sm font-semibold">Withdraw details</p>
+        <p className="text-[11px] text-muted">
+          Status: <span className="text-warning">Pending</span> → admin review →{" "}
+          <span className="text-success">Paid</span> / <span className="text-danger">Rejected</span>
+        </p>
+        <Input
+          placeholder="Account holder name"
+          value={accountName}
+          onChange={(e) => setAccountName(e.target.value)}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          {(["easypaisa", "jazzcash", "bank", "voucher"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMethod(m)}
+              className={`rounded-lg border px-2 py-2 text-xs font-medium capitalize ${
+                method === m ? "border-primary bg-primary/10 text-primary" : "border-border"
+              }`}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+        <Input
+          placeholder="03XXXXXXXXX / IBAN"
+          value={account}
+          onChange={(e) => setAccount(e.target.value)}
+        />
+      </Card>
       <Disclaimer className="mt-4" />
 
       <h2 className="mt-6 text-sm font-semibold">Rewards catalogue</h2>

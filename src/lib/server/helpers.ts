@@ -230,6 +230,42 @@ export async function maybeQualifyReferral(sql: Sql, referredUserId: string) {
       );
     }
   }
+
+  // Invite milestones: 5 / 10 / 25 qualified referrals
+  const qualified = await sql<{ n: number }>`
+    select count(*)::int as n from referrals
+    where referrer_user_id = ${ref.referrer_user_id} and status = 'rewarded'
+  `;
+  const qn = Number(qualified[0]?.n ?? 0);
+  for (const m of [5, 10, 25] as const) {
+    if (qn < m) continue;
+    const pts = await getSettingInt(sql, `milestone_${m}`, m === 5 ? 100 : m === 10 ? 300 : 1000);
+    if (pts <= 0) continue;
+    try {
+      await sql`
+        insert into milestone_claims (user_id, milestone, points)
+        values (${ref.referrer_user_id}, ${m}, ${pts})
+      `;
+      await creditPoints(
+        sql,
+        ref.referrer_user_id,
+        pts,
+        "milestone_reward",
+        `${m} friends milestone`,
+        "milestone",
+        String(m),
+      );
+      await notify(
+        sql,
+        ref.referrer_user_id,
+        "milestone",
+        `Milestone: ${m} friends!`,
+        `+${pts} points bonus for inviting ${m} qualified friends.`,
+      );
+    } catch {
+      /* already claimed */
+    }
+  }
 }
 
 export async function applyReferralIfNeeded(

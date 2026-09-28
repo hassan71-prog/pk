@@ -63,7 +63,7 @@ function FriendsPage() {
   function shareWhatsApp() {
     if (!webLink) return;
     const text = encodeURIComponent(
-      `Earn.pk pe join karo — tasks complete karke points + mega gifts jeeto!\n${webLink}`,
+      `Earn.pk pe join karo! Tasks + daily rewards. Top referrers jeetenge iPhone 12 / iPad / EarPods. Link:\n${webLink}`,
     );
     window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
   }
@@ -89,12 +89,19 @@ function FriendsPage() {
           Withdraw open hone par Top 10 ko gifts
         </p>
         <p className="mt-1 text-center text-[11px] text-muted">
-          {contest?.open
-            ? "Contest live — zyada qualified referrals = higher rank"
-            : contest?.opensAt
-              ? `Gifts tab milenge jab withdraw open hoga (${new Date(contest.opensAt).toLocaleString("en-PK", { dateStyle: "medium", timeStyle: "short" })})`
-              : "Admin withdraw date set karega — tab gifts claim / announce hongi"}
+          {contest?.ended
+            ? "Contest window khatam — winners announce admin karega"
+            : contest?.open
+              ? "Contest live — zyada qualified referrals = higher rank"
+              : contest?.opensAt
+                ? `Gifts jab withdraw open: ${new Date(contest.opensAt).toLocaleString("en-PK", { dateStyle: "medium", timeStyle: "short" })}`
+                : "Admin withdraw date set karega — tab gifts"}
         </p>
+        {contest?.endsAt && !contest.ended ? (
+          <p className="mt-1 text-center text-[11px] font-semibold text-warning">
+            Ends {new Date(contest.endsAt).toLocaleString("en-PK", { dateStyle: "medium", timeStyle: "short" })}
+          </p>
+        ) : null}
 
         {/* Top 3 prizes with images */}
         <div className="mt-4 grid grid-cols-3 gap-2">
@@ -121,6 +128,23 @@ function FriendsPage() {
       </Card>
 
       {/* Per-referral points reward (separate from contest gifts) */}
+      <Card className="mt-3 rounded-2xl p-4">
+        <p className="text-sm font-semibold">Invite milestones</p>
+        <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+          {[
+            { n: 5, pts: 100 },
+            { n: 10, pts: 300 },
+            { n: 25, pts: 1000 },
+          ].map((m) => (
+            <div key={m.n} className="rounded-xl border border-border bg-bg p-2">
+              <p className="text-xs font-bold text-primary">{m.n} friends</p>
+              <p className="text-[10px] text-muted">+{m.pts} pts</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-[10px] text-subtle">Auto bonus jab qualified count hit ho (ek dafa per milestone).</p>
+      </Card>
+
       <Card className="mt-3 rounded-2xl p-4">
         <p className="text-sm font-semibold">Referral points reward</p>
         <p className="mt-1 text-xs text-muted">

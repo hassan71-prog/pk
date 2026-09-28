@@ -2,10 +2,10 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
   ClipboardList,
+  Gamepad2,
   Home,
   Trophy,
   User,
-  Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Logo } from "@/components/logo";
@@ -15,7 +15,7 @@ import { cn, formatPoints } from "@/lib/utils";
 const NAV = [
   { to: "/", label: "Home", icon: Home },
   { to: "/tasks", label: "Tasks", icon: ClipboardList },
-  { to: "/friends", label: "Friends", icon: Users },
+  { to: "/play", label: "Play", icon: Gamepad2 },
   { to: "/ranks", label: "Ranks", icon: Trophy },
   { to: "/profile", label: "Profile", icon: User },
 ] as const;

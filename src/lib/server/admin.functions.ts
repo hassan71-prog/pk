@@ -57,6 +57,29 @@ export const getAdminOverview = createServerFn({ method: "POST" })
       select coalesce(sum(budget_pkr - spent_pkr),0)::text as n
       from campaigns where status in ('active','approved')
     `;
+    const claimsToday = await sql<{ n: number }>`
+      select count(*)::int as n from daily_reward_claims
+      where claim_date = (now() + interval '5 hours')::date
+    `;
+    const refsToday = await sql<{ n: number }>`
+      select count(*)::int as n from referrals
+      where created_at >= ((now() + interval '5 hours')::date - interval '5 hours')
+    `;
+    const refsTotal = await sql<{ n: number }>`select count(*)::int as n from referrals where status = 'rewarded'`;
+    const last7 = await sql<{ d: string; n: number }>`
+      select to_char(d::date, 'MM-DD') as d, coalesce(c.n, 0)::int as n
+      from generate_series(
+        (now() + interval '5 hours')::date - 6,
+        (now() + interval '5 hours')::date,
+        '1 day'::interval
+      ) d
+      left join (
+        select created_at::date as day, count(*)::int as n
+        from app_profiles where is_demo = false
+        group by created_at::date
+      ) c on c.day = d::date
+      order by d
+    `;
     return {
       totalUsers: Number(users[0]?.n ?? 0),
       activeUsers: Number(active[0]?.n ?? 0),
@@ -71,6 +94,10 @@ export const getAdminOverview = createServerFn({ method: "POST" })
       platformRevenue: revenue[0]?.platform ?? "0",
       activeCampaigns: Number(campaigns[0]?.n ?? 0),
       pendingSponsorBudget: pendingPay[0]?.n ?? "0",
+      claimsToday: Number(claimsToday[0]?.n ?? 0),
+      referralsToday: Number(refsToday[0]?.n ?? 0),
+      referralsQualified: Number(refsTotal[0]?.n ?? 0),
+      usersLast7: last7.map((r) => ({ day: r.d, count: Number(r.n) })),
     };
   });
 
@@ -909,6 +936,12 @@ export const adminSaveSettings = createServerFn({ method: "POST" })
       "contest_prize_2",
       "contest_prize_3",
       "contest_prize_4_10",
+      "contest_ends_at",
+      "milestone_5",
+      "milestone_10",
+      "milestone_25",
+      "scratch_prizes",
+      "scratch_enabled",
       "referral_l2_reward",
     ]);
     for (const [key, value] of Object.entries(data.entries)) {

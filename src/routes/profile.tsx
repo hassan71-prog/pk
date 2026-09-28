@@ -14,6 +14,7 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { identityPayload } from "@/lib/identity";
 import { getDashboard, getMeAdminFlag, updateProfileSettings } from "@/lib/server/user.functions";
 import { formatPoints } from "@/lib/utils";
+import { enableBrowserPush } from "@/lib/push";
 import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/profile")({ component: ProfilePage });
@@ -230,6 +231,20 @@ function ProfilePage() {
           </Button>
         </div>
       </Card>
+
+      <Button
+        className="mt-3 w-full"
+        variant="secondary"
+        onClick={async () => {
+          const p = await enableBrowserPush();
+          if (p === "granted") toast.success("Browser notifications on");
+          else if (p === "denied") toast.error("Notifications blocked in browser");
+          else if (p === "unsupported") toast.message("Is browser pe push support nahi");
+          else toast.message("Permission: " + p);
+        }}
+      >
+        Enable push notifications
+      </Button>
 
       {installEvent ? (
         <Button

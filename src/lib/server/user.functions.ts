@@ -535,6 +535,16 @@ export const getReferralInfo = createServerFn({ method: "POST" })
     const prize3 = await getSetting(sql, "contest_prize_3", "EarPods");
     const prizeRest = await getSetting(sql, "contest_prize_4_10", "Gift pack");
     const contestTitle = await getSetting(sql, "contest_title", "Referral Mega Contest");
+    const endsAtRaw = (await getSetting(sql, "contest_ends_at", "")).trim();
+    let endsAt: string | null = null;
+    let ended = false;
+    if (endsAtRaw) {
+      const te = new Date(endsAtRaw).getTime();
+      if (Number.isFinite(te) && te > 0) {
+        endsAt = new Date(te).toISOString();
+        ended = Date.now() > te;
+      }
+    }
 
     const top = await sql<{
       user_id: string;
@@ -583,8 +593,10 @@ export const getReferralInfo = createServerFn({ method: "POST" })
       })),
       contest: {
         title: contestTitle,
-        open: contestOpen,
+        open: contestOpen && !ended,
         opensAt: opensAtRaw || null,
+        endsAt,
+        ended,
         prizes: [
           { rank: 1, title: prize1, image: "/prizes/iphone12.svg" },
           { rank: 2, title: prize2, image: "/prizes/ipad.svg" },
@@ -817,7 +829,8 @@ export const createWithdrawal = createServerFn({ method: "POST" })
     z.object({
       rewardId: z.coerce.number(),
       paymentMethod: z.enum(["easypaisa", "jazzcash", "bank", "voucher"]),
-      accountDetails: z.string().min(5).max(120),
+      accountDetails: z.string().min(5).max(200),
+      accountName: z.string().min(2).max(80).optional(),
     }),
   )
   .handler(async ({ context, data }) => {
@@ -916,7 +929,7 @@ export const createWithdrawal = createServerFn({ method: "POST" })
       );
       const inserted = await sql<{ id: number }>`
         insert into withdrawals (user_id, points, reward_id, payment_method, account_details, status)
-        values (${context.userId}, ${pts}, ${rw.id}, ${data.paymentMethod}, ${data.accountDetails.trim()}, 'pending')
+        values (${context.userId}, ${pts}, ${rw.id}, ${data.paymentMethod}, ${data.accountName ? `${data.accountName.trim()} | ${data.accountDetails.trim()}` : data.accountDetails.trim()}, 'pending')
         returning id
       `;
       await notify(
@@ -1291,6 +1304,51 @@ export function computeLevel(xp: number) {
   const next = tiers.find((t) => t.need > xp) ?? null;
   return { ...current, xp, next, progress: next ? Math.min(100, Math.round(((xp - current.need) / (next.need - current.need)) * 100)) : 100 };
 }
+
+
+export const getScratchStatus = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    const today = new Date().toISOString().slice(0, 10);
+    const row = await sql<{ points: number }>`
+      select points from scratch_claims where user_id = ${context.userId} and claim_date = ${today}::date limit 1
+    `;
+    const prizesRaw = await getSetting(sql, "scratch_prizes", "0,5,10,20,50,100");
+    const prizes = prizesRaw.split(",").map((x) => Number(x.trim())).filter((n) => Number.isFinite(n) && n >= 0);
+    return {
+      usedToday: Boolean(row[0]),
+      todayPoints: row[0]?.points ?? null,
+      prizes,
+      enabled: (await getSetting(sql, "scratch_enabled", "1")) === "1",
+    };
+  });
+
+export const scratchDaily = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    rateLimit(context.userId, "scratch", 8, 60_000);
+    const sql = await getSql();
+    await ensureProfile(context.userId);
+    if ((await getSetting(sql, "scratch_enabled", "1")) !== "1") {
+      throw new AppError("Scratch card band hai.");
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const existing = await sql`select id from scratch_claims where user_id = ${context.userId} and claim_date = ${today}::date`;
+    if (existing[0]) throw new AppError("Aaj ka free scratch use ho chuka. Kal try again.");
+    const prizesRaw = await getSetting(sql, "scratch_prizes", "0,5,10,20,50,100");
+    const prizes = prizesRaw.split(",").map((x) => Number(x.trim())).filter((n) => Number.isFinite(n) && n >= 0);
+    const pts = prizes[Math.floor(Math.random() * prizes.length)] ?? 0;
+    await sql`
+      insert into scratch_claims (user_id, claim_date, points) values (${context.userId}, ${today}::date, ${pts})
+    `;
+    let balance: number | null = null;
+    if (pts > 0) {
+      balance = await creditPoints(sql, context.userId, pts, "scratch_reward", "Daily scratch card", "scratch", today);
+      await notify(sql, context.userId, "scratch", "Scratch win!", `+${pts} points from scratch card.`);
+    }
+    return { points: pts, tryAgain: pts === 0, balance };
+  });
 
 export const getMeAdminFlag = createServerFn({ method: "POST" })
   .middleware([authMiddleware])

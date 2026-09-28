@@ -54,10 +54,31 @@ function AdminHome() {
     ["User reward cost", d ? formatPkr(d.userRewardsPkr) : "—"],
     ["Platform revenue", d ? formatPkr(d.platformRevenue) : "—"],
     ["Active campaigns", d ? formatPoints(d.activeCampaigns) : "—"],
+    ["Claims today", d ? formatPoints(d.claimsToday ?? 0) : "—"],
+    ["Referrals today", d ? formatPoints(d.referralsToday ?? 0) : "—"],
+    ["Qualified refs", d ? formatPoints(d.referralsQualified ?? 0) : "—"],
   ];
 
   return (
     <AdminShell title="Dashboard">
+      {d?.usersLast7?.length ? (
+        <Card className="mb-5 p-4">
+          <p className="text-sm font-semibold">New users (7 days)</p>
+          <div className="mt-3 flex h-24 items-end gap-1">
+            {d.usersLast7.map((x) => {
+              const max = Math.max(1, ...d.usersLast7.map((y) => y.count));
+              const h = Math.round((x.count / max) * 100);
+              return (
+                <div key={x.day} className="flex flex-1 flex-col items-center gap-1">
+                  <span className="text-[9px] tabular text-muted">{x.count}</span>
+                  <div className="w-full rounded-t bg-primary/80" style={{ height: `${Math.max(4, h)}%` }} />
+                  <span className="text-[9px] text-subtle">{x.day}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      ) : null}
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {alerts.map((a) => {
           const Icon = a.icon;
