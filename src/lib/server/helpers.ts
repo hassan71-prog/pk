@@ -456,3 +456,21 @@ export async function recordCampaignSpend(sql: Sql, campaignId: number | null) {
     `;
   }
 }
+
+
+/** Soft daily earn cap across rewards (spin/scratch/daily/tasks). */
+export async function assertDailyEarnCap(sql: Sql, userId: string, addPoints: number) {
+  const cap = await getSettingInt(sql, "max_daily_earn_points", 5000);
+  if (cap <= 0) return;
+  const rows = await sql<{ n: number }>`
+    select coalesce(sum(amount),0)::int as n from points_transactions
+    where user_id = ${userId} and amount > 0
+      and created_at >= ((now() + interval '5 hours')::date - interval '5 hours')
+  `;
+  const earned = Number(rows[0]?.n ?? 0);
+  if (earned + addPoints > cap) {
+    throw new AppError(
+      `Aaj ka earn limit (${cap} points) poora. Kal phir try karo.`,
+    );
+  }
+}

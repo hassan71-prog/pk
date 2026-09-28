@@ -6,6 +6,7 @@ import {
   Home,
   Trophy,
   User,
+  Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Logo } from "@/components/logo";
@@ -15,6 +16,7 @@ import { cn, formatPoints } from "@/lib/utils";
 const NAV = [
   { to: "/", label: "Home", icon: Home },
   { to: "/tasks", label: "Tasks", icon: ClipboardList },
+  { to: "/friends", label: "Friends", icon: Users },
   { to: "/play", label: "Play", icon: Gamepad2 },
   { to: "/ranks", label: "Ranks", icon: Trophy },
   { to: "/profile", label: "Profile", icon: User },
@@ -66,7 +68,7 @@ export function AppShell({
       <main className="flex-1 px-4 pt-4 pb-28">{children}</main>
       <PwaInstallBanner />
       <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-lg border-t border-border/80 bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md">
-        <ul className="grid grid-cols-5">
+        <ul className="grid grid-cols-6">
           {NAV.map((item) => {
             const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
             const Icon = item.icon;

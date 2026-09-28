@@ -48,7 +48,16 @@ export function maskAccount(details: string): string {
 }
 
 export function errorMessage(err: unknown): string {
-  if (err instanceof Error && err.message) return err.message;
+  if (err instanceof Error && err.message) {
+    const m = err.message;
+    if (m === "Unauthorized" || /unauthorized/i.test(m)) {
+      return "Session expire — logout karke dobara login karo, phir try karo.";
+    }
+    if (/forbidden|cross-site/i.test(m)) {
+      return "Request block ho gayi. App ko same browser tab se open karke try karo.";
+    }
+    return m;
+  }
   if (typeof err === "string") return err;
-  return "Something went wrong. Please try again.";
+  return "Kuch galat ho gaya. Thori der baad try karo.";
 }

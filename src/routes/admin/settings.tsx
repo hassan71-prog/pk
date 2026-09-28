@@ -133,6 +133,11 @@ const SETTINGS: { key: string; label: string; hint: string }[] = [
     label: "Milestone 25 friends (points)",
     hint: "Bonus when 25 qualified referrals",
   },
+  {
+    key: "max_daily_earn_points",
+    label: "Max daily earn (points)",
+    hint: "Cap across tasks+spin+scratch+daily (e.g. 5000). 0 = no cap",
+  },
 ];
 
 function Page() {

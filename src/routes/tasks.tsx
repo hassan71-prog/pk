@@ -155,7 +155,11 @@ function TasksPage() {
         {tasks.isPending ? (
           <Skeleton className="h-24 rounded-xl" />
         ) : list.length === 0 ? (
-          <Card className="text-sm text-muted">Abhi koi task nahi.</Card>
+          <Card className="rounded-2xl p-6 text-center">
+            <p className="text-3xl">📋</p>
+            <p className="mt-2 text-sm font-semibold">Abhi koi task nahi</p>
+            <p className="mt-1 text-xs text-muted">Admin naya task add karega — baad mein check karo.</p>
+          </Card>
         ) : (
           list.map((t) => {
             const href = normalizeUrl(t.targetUrl);

@@ -942,6 +942,7 @@ export const adminSaveSettings = createServerFn({ method: "POST" })
       "milestone_25",
       "scratch_prizes",
       "scratch_enabled",
+      "max_daily_earn_points",
       "referral_l2_reward",
     ]);
     for (const [key, value] of Object.entries(data.entries)) {

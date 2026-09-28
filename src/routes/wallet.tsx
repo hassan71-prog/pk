@@ -16,6 +16,23 @@ import { errorMessage, formatPoints, timeAgo } from "@/lib/utils";
 
 export const Route = createFileRoute("/wallet")({ component: WalletPage });
 
+function statusLabel(s: string) {
+  if (s === "pending") return "Pending — admin review";
+  if (s === "approved" || s === "processing") return "Processing";
+  if (s === "paid" || s === "completed") return "Paid ✓";
+  if (s === "rejected") return "Rejected";
+  if (s === "cancelled") return "Cancelled";
+  return s;
+}
+
+function statusTone(s: string): "muted" | "primary" | "success" | "warning" | "danger" {
+  if (s === "paid" || s === "completed") return "success";
+  if (s === "pending" || s === "approved" || s === "processing") return "warning";
+  if (s === "rejected") return "danger";
+  return "muted";
+}
+
+
 function WalletPage() {
   const { user, isPending } = useCurrentUserState();
   const qc = useQueryClient();
@@ -219,8 +236,8 @@ function WalletPage() {
               <Card key={r.id} className="text-sm">
                 <div className="flex items-center justify-between">
                   <p className="font-medium">{r.rewardTitle ?? "Reward"}</p>
-                  <Badge tone={rejected ? "danger" : r.status === "paid" ? "success" : "muted"}>
-                    {r.status}
+                  <Badge tone={statusTone(r.status)}>
+                    {statusLabel(r.status)}
                   </Badge>
                 </div>
                 <p className="mt-1 text-xs text-muted">

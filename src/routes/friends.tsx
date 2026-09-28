@@ -202,7 +202,17 @@ function FriendsPage() {
         <p className="mt-2 text-center text-xs text-muted">Contest rank ke liye qualified referrals chahiye</p>
       )}
 
-      <h2 className="mt-6 text-sm font-semibold">Top referrers (gifts)</h2>
+      {contest?.ended ? (
+        <Card className="mt-4 border-primary/30 bg-primary/5 p-4">
+          <p className="text-sm font-bold text-primary">Contest closed — provisional winners</p>
+          <p className="mt-1 text-[11px] text-muted">
+            Final gifts admin announce karega. Neeche current Top 10 ranking hai.
+          </p>
+        </Card>
+      ) : null}
+      <h2 className="mt-6 text-sm font-semibold">
+        {contest?.ended ? "Winners / Top 10" : "Top referrers (gifts)"}
+      </h2>
       <div className="mt-2 space-y-2">
         {(contest?.topReferrers ?? []).length === 0 ? (
           <Card className="text-sm text-muted">Abhi ranking empty — invite start karo.</Card>

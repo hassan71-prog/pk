@@ -51,6 +51,9 @@ function Page() {
 
   return (
     <AdminShell title="Sponsors">
+      <p className="mb-4 text-sm text-muted">
+        Sponsor dashboard — brands add karo, campaigns budget set karo, tasks link karo. Revenue yahan track hota hai.
+      </p>
       <Card className="space-y-3">
         <Input placeholder="Sponsor name" value={name} onChange={(e) => setName(e.target.value)} />
         <Button onClick={() => addS.mutate()} disabled={!name.trim()}>

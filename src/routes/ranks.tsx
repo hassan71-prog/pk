@@ -163,7 +163,11 @@ function RanksPage() {
         {board.isPending ? (
           <Skeleton className="h-24 rounded-xl" />
         ) : rest.length === 0 && !top1 ? (
-          <Card className="text-sm text-muted">No rankings yet — complete tasks to appear here.</Card>
+          <Card className="rounded-2xl p-6 text-center">
+            <p className="text-3xl">🏆</p>
+            <p className="mt-2 text-sm font-semibold">Ranking empty</p>
+            <p className="mt-1 text-xs text-muted">Tasks complete karo ya Admin → Restore fake users.</p>
+          </Card>
         ) : (
           rest.map((e) => (
             <div

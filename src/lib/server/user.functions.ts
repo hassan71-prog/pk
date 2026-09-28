@@ -18,6 +18,7 @@ import {
   applyReferralIfNeeded,
   creditPoints,
   ensureProfile,
+  assertDailyEarnCap,
   getSetting,
   getSettingInt,
   maybeQualifyReferral,
@@ -394,6 +395,7 @@ export const completeTask = createServerFn({ method: "POST" })
         set tasks_completed = tasks_completed + 1, updated_at = now()
         where user_id = ${context.userId}
       `;
+      await assertDailyEarnCap(sql, context.userId, Number(task.reward_points));
       const balance = await creditPoints(
         sql,
         context.userId,
@@ -454,6 +456,7 @@ export const claimDaily = createServerFn({ method: "POST" })
         set daily_streak = ${streak}, last_daily_claim = ${today}, updated_at = now()
         where user_id = ${context.userId}
       `;
+      await assertDailyEarnCap(sql, context.userId, points);
       const balance = await creditPoints(
         sql,
         context.userId,
@@ -858,7 +861,7 @@ export const createWithdrawal = createServerFn({ method: "POST" })
         /* catalog item still must meet global min if configured higher */
       }
       if (profile.pointsBalance < Number(rw.points_cost)) {
-        throw new AppError("Not enough points for this reward.");
+        throw new AppError("Points kam hain is reward ke liye.");
       }
       if (Number(rw.points_cost) < minPts) {
         throw new AppError(`Minimum redemption is ${minPts} points.`);
@@ -879,10 +882,10 @@ export const createWithdrawal = createServerFn({ method: "POST" })
       `;
       const pts = Number(rw.points_cost);
       if (Number(daySum[0]?.n ?? 0) + pts > dailyLimit) {
-        throw new AppError("Daily redemption limit reached.");
+        throw new AppError(`Aaj ka withdraw limit (${dailyLimit} points) poora ho gaya.`);
       }
       if (Number(monthSum[0]?.n ?? 0) + pts > monthlyLimit) {
-        throw new AppError("Monthly redemption limit reached.");
+        throw new AppError(`Mahine ka withdraw limit (${monthlyLimit} points) poora ho gaya.`);
       }
 
       const open = await sql<{ n: number }>`
@@ -890,7 +893,7 @@ export const createWithdrawal = createServerFn({ method: "POST" })
         where user_id = ${context.userId} and status in ('pending','approved','processing')
       `;
       if (Number(open[0]?.n ?? 0) >= 3) {
-        throw new AppError("You already have pending redemption requests.");
+        throw new AppError("Pehle se 3 pending requests hain. Admin review ka wait karo.");
       }
 
       if (rw.stock != null) {
@@ -1173,6 +1176,7 @@ export const spinDaily = createServerFn({ method: "POST" })
     if (pts === 0) {
       return { points: 0, tryAgain: true as const, balance: null as number | null };
     }
+    await assertDailyEarnCap(sql, context.userId, pts);
     await sql`
       insert into spin_claims (user_id, claim_date, points) values (${context.userId}, ${today}::date, ${pts})
     `;
@@ -1340,6 +1344,7 @@ export const scratchDaily = createServerFn({ method: "POST" })
     `;
     let balance: number | null = null;
     if (pts > 0) {
+      await assertDailyEarnCap(sql, context.userId, pts);
       balance = await creditPoints(sql, context.userId, pts, "scratch_reward", "Daily scratch card", "scratch", today);
       await notify(sql, context.userId, "scratch", "Scratch win!", `+${pts} points from scratch card.`);
     }

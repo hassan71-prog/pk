@@ -24,3 +24,7 @@ insert into settings (key, value) values
   ('scratch_prizes', '0,5,10,20,50,100'),
   ('scratch_enabled', '1')
 on conflict (key) do nothing;
+
+insert into settings (key, value) values
+  ('max_daily_earn_points', '5000')
+on conflict (key) do nothing;
