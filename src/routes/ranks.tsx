@@ -166,7 +166,7 @@ function RanksPage() {
           <Card className="rounded-2xl p-6 text-center">
             <p className="text-3xl">🏆</p>
             <p className="mt-2 text-sm font-semibold">Ranking empty</p>
-            <p className="mt-1 text-xs text-muted">Tasks complete karo ya Admin → Restore fake users.</p>
+            <p className="mt-1 text-xs text-muted">Tasks complete karo — ranking yahan update hogi.</p>
           </Card>
         ) : (
           rest.map((e) => (
