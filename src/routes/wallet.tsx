@@ -40,29 +40,55 @@ function WalletPage() {
   const [method, setMethod] = useState<"easypaisa" | "jazzcash" | "bank" | "voucher">("easypaisa");
   const [account, setAccount] = useState("");
   const [accountName, setAccountName] = useState("");
+  const [payoutLoaded, setPayoutLoaded] = useState(false);
   const wallet = useQuery({
     queryKey: ["wallet"],
     enabled: !!user,
     queryFn: () => getWallet(),
   });
+
+  useEffect(() => {
+    if (!wallet.data?.payout || payoutLoaded) return;
+    const po = wallet.data.payout;
+    if (po.method) setMethod(po.method as "easypaisa" | "jazzcash" | "bank" | "voucher");
+    if (po.account) setAccount(po.account);
+    if (po.name) setAccountName(po.name);
+    setPayoutLoaded(true);
+  }, [wallet.data, payoutLoaded]);
+
+  const savePay = useMutation({
+    mutationFn: () =>
+      savePayoutDetails({
+        data: {
+          method,
+          account: account.trim(),
+          name: accountName.trim(),
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Withdraw account save ho gaya");
+      void qc.invalidateQueries({ queryKey: ["wallet"] });
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+
   const redeem = useMutation({
     mutationFn: () =>
       createWithdrawal({
         data: {
           rewardId: selected!,
           paymentMethod: method,
-          accountDetails: account,
+          accountDetails: account.trim() || undefined,
           accountName: accountName.trim() || undefined,
         },
       }),
     onSuccess: () => {
       toast.success("Request submitted — status: Pending (admin review)");
-      setAccount("");
-      setAccountName("");
       void qc.invalidateQueries();
     },
     onError: (err) => toast.error(errorMessage(err)),
   });
+
   const cancel = useMutation({
     mutationFn: (id: number) => cancelWithdrawal({ data: { id } }),
     onSuccess: () => {
