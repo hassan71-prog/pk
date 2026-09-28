@@ -106,9 +106,9 @@ function FriendsPage() {
         {/* Top 3 prizes with images */}
         <div className="mt-4 grid grid-cols-3 gap-2">
           {[
-            { rank: 2, title: contest?.prizes?.[1]?.title ?? "iPad", img: "/prizes/ipad.svg", h: "h-20" },
-            { rank: 1, title: contest?.prizes?.[0]?.title ?? "iPhone 12", img: "/prizes/iphone12.svg", h: "h-24" },
-            { rank: 3, title: contest?.prizes?.[2]?.title ?? "EarPods", img: "/prizes/earpods.svg", h: "h-20" },
+            { rank: 2, title: contest?.prizes?.[1]?.title ?? "iPad", img: "/prizes/ipad.jpg", h: "h-20" },
+            { rank: 1, title: contest?.prizes?.[0]?.title ?? "iPhone 12", img: "/prizes/iphone12.jpg", h: "h-24" },
+            { rank: 3, title: contest?.prizes?.[2]?.title ?? "EarPods", img: "/prizes/earpods.jpg", h: "h-20" },
           ].map((p) => (
             <div
               key={p.rank}
@@ -227,7 +227,7 @@ function FriendsPage() {
               <span className="w-6 text-center text-xs font-bold text-muted">#{r.rank}</span>
               {r.rank <= 3 ? (
                 <img
-                  src={r.rank === 1 ? "/prizes/iphone12.svg" : r.rank === 2 ? "/prizes/ipad.svg" : "/prizes/earpods.svg"}
+                  src={r.rank === 1 ? "/prizes/iphone12.jpg" : r.rank === 2 ? "/prizes/ipad.jpg" : "/prizes/earpods.jpg"}
                   alt=""
                   className="h-8 w-8 object-contain"
                 />

@@ -585,9 +585,9 @@ export const getReferralInfo = createServerFn({ method: "POST" })
         endsAt,
         ended,
         prizes: [
-          { rank: 1, title: prize1, image: "/prizes/iphone12.svg" },
-          { rank: 2, title: prize2, image: "/prizes/ipad.svg" },
-          { rank: 3, title: prize3, image: "/prizes/earpods.svg" },
+          { rank: 1, title: prize1, image: "/prizes/iphone12.jpg" },
+          { rank: 2, title: prize2, image: "/prizes/ipad.jpg" },
+          { rank: 3, title: prize3, image: "/prizes/earpods.jpg" },
           { rank: 4, title: prizeRest, image: "/prizes/gift.svg" },
           { rank: 5, title: prizeRest, image: "/prizes/gift.svg" },
           { rank: 6, title: prizeRest, image: "/prizes/gift.svg" },
