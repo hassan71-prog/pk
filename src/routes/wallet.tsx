@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell, Disclaimer } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { cancelWithdrawal, createWithdrawal, getWallet } from "@/lib/server/user.functions";
+import { cancelWithdrawal, createWithdrawal, getWallet, savePayoutDetails } from "@/lib/server/user.functions";
 import { TX_LABELS } from "@/lib/types";
 import { errorMessage, formatPoints, timeAgo } from "@/lib/utils";
 
@@ -125,10 +125,9 @@ function WalletPage() {
       ) : null}
 
       <Card className="mt-3 space-y-2 p-4">
-        <p className="text-sm font-semibold">Withdraw details</p>
+        <p className="text-sm font-semibold">Withdraw account (pehle save karo)</p>
         <p className="text-[11px] text-muted">
-          Status: <span className="text-warning">Pending</span> → admin review →{" "}
-          <span className="text-success">Paid</span> / <span className="text-danger">Rejected</span>
+          JazzCash / EasyPaisa number abhi save kar lo. Jab withdraw open hoga, sirf amount select karna hoga.
         </p>
         <Input
           placeholder="Account holder name"
@@ -154,6 +153,21 @@ function WalletPage() {
           value={account}
           onChange={(e) => setAccount(e.target.value)}
         />
+        <Button
+          className="w-full"
+          variant="secondary"
+          disabled={savePay.isPending || account.trim().length < 5 || accountName.trim().length < 2}
+          onClick={() => savePay.mutate()}
+        >
+          {savePay.isPending ? "Saving…" : "Save withdraw account"}
+        </Button>
+        {w?.payout?.account ? (
+          <p className="text-[11px] text-success">
+            Saved: {w.payout.method} · {w.payout.name} · ••••{String(w.payout.account).slice(-4)}
+          </p>
+        ) : (
+          <p className="text-[11px] text-warning">Abhi account save nahi — pehle Save dabao.</p>
+        )}
       </Card>
       <Disclaimer className="mt-4" />
 
@@ -192,33 +206,29 @@ function WalletPage() {
       </div>
       {selected ? (
         <Card className="mt-3 space-y-3">
-          <p className="text-sm font-medium">Payout details</p>
-          <div className="grid grid-cols-2 gap-2">
-            {(["easypaisa", "jazzcash", "bank", "voucher"] as const).map((m) => (
-              <Button key={m} size="sm" variant={method === m ? "default" : "secondary"} onClick={() => setMethod(m)}>
-                {m}
-              </Button>
-            ))}
-          </div>
-          <Input
-            placeholder={method === "bank" ? "IBAN / account title" : "Mobile account number"}
-            value={account}
-            onChange={(e) => setAccount(e.target.value)}
-          />
+          <p className="text-sm font-medium">Confirm amount</p>
+          <p className="text-xs text-muted">
+            Account:{" "}
+            {w?.payout?.account
+              ? `${w.payout.method} · ${w.payout.name} · ••••${String(w.payout.account).slice(-4)}`
+              : "pehle upar Save withdraw account karo"}
+          </p>
           <Button
             className="w-full"
             disabled={
               redeem.isPending ||
-              account.trim().length < 5 ||
+              !w?.payout?.account ||
               !w?.withdrawalsEnabled
             }
             onClick={() => redeem.mutate()}
           >
             {!w?.withdrawalsEnabled
               ? w?.comingSoon
-                ? "Coming soon"
+                ? "Coming soon — sirf amount ready rakho"
                 : "Withdrawals closed"
-              : "Request redemption"}
+              : !w?.payout?.account
+                ? "Pehle account save karo"
+                : "Withdraw this amount"}
           </Button>
         </Card>
       ) : null}

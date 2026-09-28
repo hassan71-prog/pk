@@ -18,6 +18,9 @@ export type Profile = {
   isAdmin: boolean;
   isDemo: boolean;
   createdAt: string;
+  payoutMethod?: string | null;
+  payoutAccount?: string | null;
+  payoutName?: string | null;
 };
 
 export type TaskCategory =

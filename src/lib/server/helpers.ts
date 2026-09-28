@@ -64,6 +64,9 @@ type ProfileRow = {
   is_admin: boolean;
   is_demo: boolean;
   created_at: unknown;
+  payout_method?: string | null;
+  payout_account?: string | null;
+  payout_name?: string | null;
 };
 
 export function mapProfile(r: ProfileRow): Profile {
@@ -87,6 +90,9 @@ export function mapProfile(r: ProfileRow): Profile {
     isAdmin: Boolean(r.is_admin),
     isDemo: Boolean(r.is_demo),
     createdAt: toIso(r.created_at),
+    payoutMethod: r.payout_method ?? null,
+    payoutAccount: r.payout_account ?? null,
+    payoutName: r.payout_name ?? null,
   };
 }
 

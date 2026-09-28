@@ -764,6 +764,11 @@ export const getWallet = createServerFn({ method: "POST" })
     const withdrawalsEnabled = flagOpen && !comingSoon;
     return {
       profile,
+      payout: {
+        method: (profile as { payoutMethod?: string | null }).payoutMethod ?? null,
+        account: (profile as { payoutAccount?: string | null }).payoutAccount ?? null,
+        name: (profile as { payoutName?: string | null }).payoutName ?? null,
+      },
       pendingPoints: Number(pending[0]?.n ?? 0),
       minWithdrawal: minPts,
       pointsToPkr: Number.isFinite(pointsToPkr) ? pointsToPkr : 0.02,
@@ -815,8 +820,8 @@ export const createWithdrawal = createServerFn({ method: "POST" })
   .validator(
     z.object({
       rewardId: z.coerce.number(),
-      paymentMethod: z.enum(["easypaisa", "jazzcash", "bank", "voucher"]),
-      accountDetails: z.string().min(5).max(200),
+      paymentMethod: z.enum(["easypaisa", "jazzcash", "bank", "voucher"]).optional(),
+      accountDetails: z.string().min(5).max(200).optional(),
       accountName: z.string().min(2).max(80).optional(),
     }),
   )
@@ -825,6 +830,27 @@ export const createWithdrawal = createServerFn({ method: "POST" })
       rateLimit(context.userId, "withdraw", 6, 60_000);
       const profile = await ensureProfile(context.userId);
       const sql = await getSql();
+
+      // Prefer request body, else saved payout profile
+      const saved = await sql<{
+        payout_method: string | null;
+        payout_account: string | null;
+        payout_name: string | null;
+      }>`
+        select payout_method, payout_account, payout_name from app_profiles where user_id = ${context.userId}
+      `;
+      const payMethod =
+        data.paymentMethod ||
+        (saved[0]?.payout_method as "easypaisa" | "jazzcash" | "bank" | "voucher" | null) ||
+        null;
+      const payAccount = (data.accountDetails || saved[0]?.payout_account || "").trim();
+      const payName = (data.accountName || saved[0]?.payout_name || "").trim();
+      if (!payMethod || !["easypaisa", "jazzcash", "bank", "voucher"].includes(payMethod)) {
+        throw new AppError("Pehle withdraw account save karo (Wallet → Save account).");
+      }
+      if (payAccount.length < 5) {
+        throw new AppError("Pehle valid JazzCash/EasyPaisa number save karo.");
+      }
 
       // Withdrawals: admin flag + optional scheduled open time
       const withdrawalsOpen = await getSettingInt(sql, "withdrawals_open", 1);
@@ -916,7 +942,7 @@ export const createWithdrawal = createServerFn({ method: "POST" })
       );
       const inserted = await sql<{ id: number }>`
         insert into withdrawals (user_id, points, reward_id, payment_method, account_details, status)
-        values (${context.userId}, ${pts}, ${rw.id}, ${data.paymentMethod}, ${data.accountName ? `${data.accountName.trim()} | ${data.accountDetails.trim()}` : data.accountDetails.trim()}, 'pending')
+        values (${context.userId}, ${pts}, ${rw.id}, ${payMethod}, ${payName ? `${payName} | ${payAccount}` : payAccount}, 'pending')
         returning id
       `;
       await notify(
@@ -997,6 +1023,34 @@ export const markNotificationsRead = createServerFn({ method: "POST" })
       update notifications set read_at = now()
       where user_id = ${context.userId} and read_at is null
     `;
+    return { ok: true };
+  });
+
+export const savePayoutDetails = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(
+    z.object({
+      method: z.enum(["easypaisa", "jazzcash", "bank", "voucher"]),
+      account: z.string().min(5).max(120),
+      name: z.string().min(2).max(80),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    rateLimit(context.userId, "payout_save", 10, 60_000);
+    await ensureProfile(context.userId);
+    const sql = await getSql();
+    try {
+      await sql`
+        update app_profiles set
+          payout_method = ${data.method},
+          payout_account = ${data.account.trim()},
+          payout_name = ${data.name.trim()},
+          updated_at = now()
+        where user_id = ${context.userId}
+      `;
+    } catch {
+      throw new AppError("Payout save failed. Migration 0008 chalni chahiye (payout columns).");
+    }
     return { ok: true };
   });
 
