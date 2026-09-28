@@ -1090,32 +1090,36 @@ export const adminRestoreDemoUsers = createServerFn({ method: "POST" })
       "Saad","Anas","Umer","Zubair","Shahzaib","Moiz","Arham","Rayyan","Ayan","Murtaza",
       "Amna","Hafsa","Khadija","Javeria","Tania","Irum","Saba","Komal","Neha","Pashmina",
     ];
-    let n = 0;
-    for (let i = 0; i < names.length; i++) {
-      const idx = i + 1;
-      const uid = `demo-user-${String(idx).padStart(3, "0")}`;
-      let pts = 50000 - idx * 370 + (idx % 7) * 50;
-      if (pts < 100) pts = 100 + idx;
-      const code = `DM${String(idx).padStart(4, "0")}`;
-      const name = `${names[i]} ${idx}`;
-      await sql`
-        insert into app_profiles (
-          user_id, display_name, referral_code, lifetime_earned, points_balance, is_demo, status
-        ) values (
-          ${uid}, ${name}, ${code}, ${pts}, ${pts}, true, 'active'
-        )
-        on conflict (user_id) do update set
-          display_name = excluded.display_name,
-          lifetime_earned = excluded.lifetime_earned,
-          points_balance = excluded.points_balance,
-          is_demo = true,
-          status = 'active',
-          updated_at = now()
-      `;
-      n += 1;
+    try {
+      for (let i = 0; i < names.length; i++) {
+        const idx = i + 1;
+        const uid = `demo-user-${String(idx).padStart(3, "0")}`;
+        let pts = 50000 - idx * 370 + (idx % 7) * 50;
+        if (pts < 100) pts = 100 + idx;
+        const code = `DM${String(idx).padStart(4, "0")}`;
+        const name = `${names[i]} ${idx}`;
+        await sql`
+          insert into app_profiles (
+            user_id, display_name, referral_code, lifetime_earned, points_balance, is_demo, status
+          ) values (
+            ${uid}, ${name}, ${code}, ${pts}, ${pts}, true, 'active'
+          )
+          on conflict (user_id) do update set
+            display_name = excluded.display_name,
+            lifetime_earned = excluded.lifetime_earned,
+            points_balance = excluded.points_balance,
+            is_demo = true,
+            status = 'active',
+            updated_at = now()
+        `;
+      }
+      await audit(sql, context.userId, "demo.restore_users", "system", null, `Restored ${names.length} demo users`);
+      return { ok: true, count: names.length };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Restore failed";
+      if (/unauthorized/i.test(msg)) throw e;
+      throw new AppError(`Fake users restore failed: ${msg}`);
     }
-    await audit(sql, context.userId, "demo.restore_users", "system", null, `Restored ${n} demo users`);
-    return { ok: true, count: n };
   });
 
 export const adminRestoreReferralDemo = createServerFn({ method: "POST" })
@@ -1123,6 +1127,7 @@ export const adminRestoreReferralDemo = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     await requireAdmin(context.userId);
     const sql = await getSql();
+    try {
     const first = ["Ahmed","Ali","Hassan","Bilal","Usman","Omar","Zain","Hamza","Faisal","Imran",
       "Ayesha","Fatima","Sana","Hira","Iqra","Zara","Noor","Sara","Rabia","Nida",
       "Danish","Salman","Adnan","Farhan","Yasir","Kashif","Rehan","Arslan","Saad","Anas"];
@@ -1176,6 +1181,11 @@ export const adminRestoreReferralDemo = createServerFn({ method: "POST" })
     `;
     await audit(sql, context.userId, "demo.restore_referrals", "system", null, `Restored ${n} referral demo users`);
     return { ok: true, count: n };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Restore failed";
+      if (/unauthorized/i.test(msg) || /Admin access/i.test(msg)) throw e;
+      throw new AppError(`Referral fake users restore failed: ${msg}`);
+    }
   });
 
   export const adminGetWithdrawalStatus = createServerFn({ method: "POST" })

@@ -434,25 +434,9 @@ export const claimDaily = createServerFn({ method: "POST" })
         select ((now() + interval '5 hours')::date - 1)::text as d
       `;
       const yesterday = yesterdayRows[0]?.d;
+      // Miss a day → streak restarts from 1 (like normal daily check-in)
       const continued = profile.lastDailyClaim === yesterday;
-      let usedFreeze = false;
-      let streak = continued ? profile.dailyStreak + 1 : 1;
-      if (!continued && profile.dailyStreak > 0) {
-        const freezeOn = await getSetting(sql, "streak_freeze_enabled", "1");
-        if (freezeOn === "1") {
-          const fr = await sql<{ streak_freezes: number }>`
-            select coalesce(streak_freezes, 0)::int as streak_freezes from app_profiles where user_id = ${context.userId}
-          `;
-          const left = Number(fr[0]?.streak_freezes ?? 0);
-          if (left > 0) {
-            streak = profile.dailyStreak + 1;
-            usedFreeze = true;
-            await sql`
-              update app_profiles set streak_freezes = streak_freezes - 1 where user_id = ${context.userId} and streak_freezes > 0
-            `;
-          }
-        }
-      }
+      const streak = continued ? profile.dailyStreak + 1 : 1;
       const dayNumber = ((streak - 1) % status.schedule.length) + 1;
       const points = status.schedule[dayNumber - 1] ?? 100;
 
@@ -1169,8 +1153,14 @@ export const spinDaily = createServerFn({ method: "POST" })
     await ensureProfile(context.userId);
     const enabled = await getSetting(sql, "spin_enabled", "1");
     if (enabled !== "1") throw new AppError("Spin is disabled.");
-    const today = new Date().toISOString().slice(0, 10);
-    const existing = await sql`select id from spin_claims where user_id = ${context.userId} and claim_date = ${today}::date`;
+    const todayRows = await sql<{ d: string }>`select (now() + interval '5 hours')::date::text as d`;
+    const today = todayRows[0]!.d;
+    let existing: { id: number }[] = [];
+    try {
+      existing = await sql`select id from spin_claims where user_id = ${context.userId} and claim_date = ${today}::date`;
+    } catch {
+      throw new AppError("Spin table missing. Run migration 0004 (spin_claims) on the database.");
+    }
     if (existing[0]) throw new AppError("Aaj ka free spin use ho chuka. Kal try again.");
     // 0 = Try again (does not consume the daily spin)
     const prizesRaw = await getSetting(sql, "spin_prizes", "0,10,20,30,50,80,100,150");
@@ -1196,10 +1186,16 @@ export const getSpinStatus = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
-    const today = new Date().toISOString().slice(0, 10);
-    const row = await sql<{ points: number }>`
-      select points from spin_claims where user_id = ${context.userId} and claim_date = ${today}::date limit 1
-    `;
+    const todayRows = await sql<{ d: string }>`select (now() + interval '5 hours')::date::text as d`;
+    const today = todayRows[0]!.d;
+    let row: { points: number }[] = [];
+    try {
+      row = await sql<{ points: number }>`
+        select points from spin_claims where user_id = ${context.userId} and claim_date = ${today}::date limit 1
+      `;
+    } catch {
+      return { usedToday: false, todayPoints: null, prizes: [0, 10, 20, 30, 50, 80, 100, 150], enabled: false };
+    }
     const prizesRaw = await getSetting(sql, "spin_prizes", "0,10,20,30,50,80,100,150");
     const prizes = prizesRaw
       .split(",")

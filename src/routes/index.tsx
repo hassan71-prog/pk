@@ -102,8 +102,7 @@ function Dashboard() {
     mutationFn: () => claimDaily(),
     onSuccess: (res) => {
       haptic("medium");
-      const freeze = (res as { usedFreeze?: boolean }).usedFreeze ? " (streak freeze used)" : "";
-      toast.success(`Daily reward: +${res.points} points${freeze}`);
+      toast.success(`Daily reward: +${res.points} points · streak ${res.streak}`);
       void qc.invalidateQueries();
     },
     onError: (err) => toast.error(errorMessage(err)),
@@ -261,15 +260,16 @@ function Dashboard() {
       <Card className="mt-2 rounded-2xl p-3">
         <p className="text-xs font-semibold">Weekly rank bonus (Top 10)</p>
         <p className="mt-1 text-[11px] text-muted">
-          {!lbStatus.data?.opensAt
-            ? "Admin abhi date set nahi ki"
-            : lbStatus.data.claimed
-              ? "Is schedule ka bonus claim ho chuka"
-              : lbStatus.data.open
-                ? "Ab claim kar sakte ho (hafta mein 1 dafa)"
-                : lbStatus.data.ended
-                  ? "Window band — next schedule ka wait"
-                  : `Opens ${new Date(lbStatus.data.opensAt).toLocaleString("en-PK")}`}
+          {(() => {
+            const s = lbStatus.data;
+            if (!s?.opensAt) return "Admin ne abhi date set nahi ki (Settings → Rank bonus opens at)";
+            const t0 = new Date(s.opensAt).getTime();
+            if (!Number.isFinite(t0)) return "Admin ne abhi date set nahi ki (Settings → Rank bonus opens at)";
+            if (s.claimed) return "Is schedule ka bonus claim ho chuka";
+            if (s.open) return "Ab claim kar sakte ho (hafta mein 1 dafa)";
+            if (s.ended) return "Window band — next schedule ka wait";
+            return `Opens ${new Date(t0).toLocaleString("en-PK", { dateStyle: "medium", timeStyle: "short" })}`;
+          })()}
         </p>
         <Button
           variant="outline"
