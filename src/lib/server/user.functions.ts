@@ -521,6 +521,51 @@ export const getReferralInfo = createServerFn({ method: "POST" })
       where user_id = ${context.userId} and type = 'referral_l2_reward'
     `;
     const l2Reward = await getSettingInt(sql, "referral_l2_reward", 10);
+
+    // Contest: when withdrawals open, top referrers win gifts
+    const opensAtRaw = (await getSetting(sql, "withdrawals_opens_at", "")).trim();
+    const flagOpen = (await getSettingInt(sql, "withdrawals_open", 1)) === 1;
+    let contestOpen = flagOpen;
+    if (opensAtRaw) {
+      const t0 = new Date(opensAtRaw).getTime();
+      if (Number.isFinite(t0)) contestOpen = flagOpen && Date.now() >= t0;
+    }
+    const prize1 = await getSetting(sql, "contest_prize_1", "iPhone 12");
+    const prize2 = await getSetting(sql, "contest_prize_2", "iPad");
+    const prize3 = await getSetting(sql, "contest_prize_3", "EarPods");
+    const prizeRest = await getSetting(sql, "contest_prize_4_10", "Gift pack");
+    const contestTitle = await getSetting(sql, "contest_title", "Referral Mega Contest");
+
+    const top = await sql<{
+      user_id: string;
+      display_name: string;
+      n: number;
+      is_demo: boolean;
+    }>`
+      select p.user_id, p.display_name, count(r.id)::int as n, p.is_demo
+      from app_profiles p
+      join referrals r on r.referrer_user_id = p.user_id and r.status = 'rewarded'
+      where p.status = 'active'
+      group by p.user_id, p.display_name, p.is_demo
+      order by n desc, p.created_at asc
+      limit 10
+    `;
+
+    const myRankRows = await sql<{ n: number }>`
+      select count(id)::int as n from referrals
+      where referrer_user_id = ${context.userId} and status = 'rewarded'
+    `;
+    const myRefs = Number(myRankRows[0]?.n ?? 0);
+    const higher = await sql<{ c: number }>`
+      select count(*)::int as c from (
+        select referrer_user_id, count(*) as n
+        from referrals where status = 'rewarded'
+        group by referrer_user_id
+        having count(*) > ${myRefs}
+      ) x
+    `;
+    const myRank = myRefs > 0 ? Number(higher[0]?.c ?? 0) + 1 : null;
+
     return {
       code: profile.referralCode,
       telegramLink: `https://t.me/${bot}?start=${profile.referralCode}`,
@@ -536,6 +581,34 @@ export const getReferralInfo = createServerFn({ method: "POST" })
         status: r.status,
         createdAt: toIso(r.created_at),
       })),
+      contest: {
+        title: contestTitle,
+        open: contestOpen,
+        opensAt: opensAtRaw || null,
+        prizes: [
+          { rank: 1, title: prize1, image: "/prizes/iphone12.svg" },
+          { rank: 2, title: prize2, image: "/prizes/ipad.svg" },
+          { rank: 3, title: prize3, image: "/prizes/earpods.svg" },
+          { rank: 4, title: prizeRest, image: "/prizes/gift.svg" },
+          { rank: 5, title: prizeRest, image: "/prizes/gift.svg" },
+          { rank: 6, title: prizeRest, image: "/prizes/gift.svg" },
+          { rank: 7, title: prizeRest, image: "/prizes/gift.svg" },
+          { rank: 8, title: prizeRest, image: "/prizes/gift.svg" },
+          { rank: 9, title: prizeRest, image: "/prizes/gift.svg" },
+          { rank: 10, title: prizeRest, image: "/prizes/gift.svg" },
+        ],
+        topReferrers: top.map((r, i) => ({
+          rank: i + 1,
+          name: r.display_name,
+          count: Number(r.n),
+          isDemo: Boolean(r.is_demo),
+          isYou: r.user_id === context.userId,
+          prize:
+            i === 0 ? prize1 : i === 1 ? prize2 : i === 2 ? prize3 : prizeRest,
+        })),
+        yourRank: myRank,
+        yourQualified: myRefs,
+      },
     };
   });
 
@@ -1179,15 +1252,18 @@ export const getLeaderboardBonusStatus = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
-    const opensAt = (await getSetting(sql, "leaderboard_bonus_opens_at", "")).trim() || null;
+    const raw = (await getSetting(sql, "leaderboard_bonus_opens_at", "")).trim();
+    let opensAt: string | null = null;
     let open = false;
     let ended = false;
-    if (opensAt) {
-      const t0 = new Date(opensAt).getTime();
-      if (Number.isFinite(t0)) {
+    if (raw) {
+      const t0 = new Date(raw).getTime();
+      if (Number.isFinite(t0) && t0 > 0) {
+        opensAt = new Date(t0).toISOString();
         open = Date.now() >= t0 && Date.now() <= t0 + 7 * 24 * 60 * 60 * 1000;
         ended = Date.now() > t0 + 7 * 24 * 60 * 60 * 1000;
       }
+      // invalid raw string → treat as not scheduled
     }
     const weekKey = opensAt ? opensAt.slice(0, 16) : "";
     let claimed = false;

@@ -10,6 +10,7 @@ import {
   adminGetSettings,
   adminPurgeDemo,
   adminRestoreDemoUsers,
+  adminRestoreReferralDemo,
   adminSaveSettings,
 } from "@/lib/server/admin.functions";
 import { errorMessage } from "@/lib/utils";
@@ -80,12 +81,37 @@ const SETTINGS: { key: string; label: string; hint: string }[] = [
   {
     key: "leaderboard_bonus_opens_at",
     label: "Rank bonus opens at (ISO datetime)",
-    hint: "e.g. 2026-09-28T10:00:00+05:00 — Top 10 can claim for 7 days, once",
+    hint: "Format: 2026-09-28T10:00:00+05:00 (ISO). Empty = closed. Open for 7 days from this time.",
   },
   {
     key: "leaderboard_weekly_rewards",
     label: "Rank bonus points (Top 1–10)",
     hint: "e.g. 500,300,200,100,100,50,50,50,50,50",
+  },
+  {
+    key: "contest_title",
+    label: "Referral contest title",
+    hint: "Shown on Invite Friends page",
+  },
+  {
+    key: "contest_prize_1",
+    label: "Contest #1 prize",
+    hint: "Default: iPhone 12",
+  },
+  {
+    key: "contest_prize_2",
+    label: "Contest #2 prize",
+    hint: "Default: iPad",
+  },
+  {
+    key: "contest_prize_3",
+    label: "Contest #3 prize",
+    hint: "Default: EarPods",
+  },
+  {
+    key: "contest_prize_4_10",
+    label: "Contest #4–10 prize",
+    hint: "Default: Gift pack",
   },
 ];
 
@@ -119,6 +145,14 @@ function Page() {
     mutationFn: () => adminRestoreDemoUsers(),
     onSuccess: (res) => {
       toast.success(`${res.count} fake users ranks pe wapas aa gaye`);
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  const restoreReferral = useMutation({
+    mutationFn: () => adminRestoreReferralDemo(),
+    onSuccess: (res) => {
+      toast.success(`${res.count} fake referral users contest pe aa gaye`);
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -157,6 +191,13 @@ function Page() {
             disabled={restoreDemo.isPending}
           >
             {restoreDemo.isPending ? "Restoring…" : "Restore 100 fake rank users"}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => restoreReferral.mutate()}
+            disabled={restoreReferral.isPending}
+          >
+            {restoreReferral.isPending ? "Restoring…" : "Restore 150 fake referral users"}
           </Button>
         </div>
         <p className="mt-2 text-[11px] text-subtle">

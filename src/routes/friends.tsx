@@ -27,12 +27,18 @@ function FriendsPage() {
     queryFn: () => getReferralInfo({ data: identityPayload(user) }),
   });
 
-  if (isPending) return <AppShell title="Invite Friends"><Skeleton className="h-40 rounded-xl" /></AppShell>;
+  if (isPending)
+    return (
+      <AppShell title="Invite Friends">
+        <Skeleton className="h-40 rounded-xl" />
+      </AppShell>
+    );
   if (!user) return <RedirectToSignIn />;
 
   const d = info.data;
   const webLink =
     typeof window !== "undefined" && d ? `${window.location.origin}/?ref=${d.code}` : d?.telegramLink;
+  const contest = d?.contest;
 
   async function copy() {
     if (!webLink) return;
@@ -47,7 +53,9 @@ function FriendsPage() {
       try {
         await navigator.share({ title: "Earn.pk", text, url: webLink });
         return;
-      } catch { /* cancelled */ }
+      } catch {
+        /* cancelled */
+      }
     }
     await copy();
   }
@@ -55,7 +63,7 @@ function FriendsPage() {
   function shareWhatsApp() {
     if (!webLink) return;
     const text = encodeURIComponent(
-      `Earn.pk pe join karo aur tasks complete karke points kamao!\n${webLink}`,
+      `Earn.pk pe join karo — tasks complete karke points + mega gifts jeeto!\n${webLink}`,
     );
     window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
   }
@@ -72,11 +80,64 @@ function FriendsPage() {
 
   return (
     <AppShell title="Invite Friends" points={dash.data?.profile.pointsBalance} unread={dash.data?.unread}>
-      <p className="text-sm text-muted">
-        Invite friends with your code. Rewards post only after they meet the qualification — currently{" "}
-        {d?.qualifyTasks ?? 1} completed task{d?.qualifyTasks === 1 ? "" : "s"}. Self-referrals are blocked.
-      </p>
-      <Card className="mt-4 rounded-2xl">
+      {/* Contest hero */}
+      <Card className="overflow-hidden rounded-2xl border-primary/30 bg-gradient-to-b from-primary/15 to-surface p-4">
+        <p className="text-center text-xs font-medium uppercase tracking-wide text-primary">
+          {contest?.title ?? "Referral Mega Contest"}
+        </p>
+        <p className="mt-1 text-center text-sm font-bold">
+          Withdraw open hone par Top 10 ko gifts
+        </p>
+        <p className="mt-1 text-center text-[11px] text-muted">
+          {contest?.open
+            ? "Contest live — zyada qualified referrals = higher rank"
+            : contest?.opensAt
+              ? `Gifts tab milenge jab withdraw open hoga (${new Date(contest.opensAt).toLocaleString("en-PK", { dateStyle: "medium", timeStyle: "short" })})`
+              : "Admin withdraw date set karega — tab gifts claim / announce hongi"}
+        </p>
+
+        {/* Top 3 prizes with images */}
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {[
+            { rank: 2, title: contest?.prizes?.[1]?.title ?? "iPad", img: "/prizes/ipad.svg", h: "h-20" },
+            { rank: 1, title: contest?.prizes?.[0]?.title ?? "iPhone 12", img: "/prizes/iphone12.svg", h: "h-24" },
+            { rank: 3, title: contest?.prizes?.[2]?.title ?? "EarPods", img: "/prizes/earpods.svg", h: "h-20" },
+          ].map((p) => (
+            <div
+              key={p.rank}
+              className={`flex flex-col items-center rounded-xl border border-border bg-bg/80 p-2 ${
+                p.rank === 1 ? "border-primary/50 shadow-[0_0_16px_rgba(34,197,94,0.25)]" : ""
+              }`}
+            >
+              <span className="text-[10px] font-bold text-primary">#{p.rank}</span>
+              <img src={p.img} alt={p.title} className={`${p.h} w-auto object-contain`} />
+              <p className="mt-1 text-center text-[10px] font-semibold leading-tight">{p.title}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-center text-[11px] text-muted">
+          Rank 4–10: {contest?.prizes?.[3]?.title ?? "Gift pack"} 🎁
+        </p>
+      </Card>
+
+      {/* Per-referral points reward (separate from contest gifts) */}
+      <Card className="mt-3 rounded-2xl p-4">
+        <p className="text-sm font-semibold">Referral points reward</p>
+        <p className="mt-1 text-xs text-muted">
+          Har qualified friend pe <span className="font-bold text-primary">+{d?.reward ?? 250} points</span>
+          {d?.l2Reward ? (
+            <>
+              {" "}
+              · L2 team bonus <span className="text-primary">+{d.l2Reward}</span>
+            </>
+          ) : null}
+        </p>
+        <p className="mt-1 text-[11px] text-subtle">
+          Qualify: friend {d?.qualifyTasks ?? 1} task complete kare. Yeh points gifts se alag hain.
+        </p>
+      </Card>
+
+      <Card className="mt-3 rounded-2xl">
         <p className="text-xs text-muted">Your referral code</p>
         <p className="mt-1 font-mono text-2xl font-semibold tracking-widest">{d?.code ?? "••••••••"}</p>
         <p className="mt-3 break-all text-xs text-subtle">{webLink}</p>
@@ -92,23 +153,66 @@ function FriendsPage() {
             Telegram
           </Button>
         </div>
-        <p className="mt-3 text-xs text-subtle">Telegram: {d?.telegramLink}</p>
       </Card>
+
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <Card className="p-3">
+        <Card className="p-3 text-center">
           <p className="text-[11px] text-muted">Total</p>
-          <p className="text-lg font-semibold tabular">{d?.total ?? 0}</p>
+          <p className="text-lg font-bold tabular">{d?.total ?? 0}</p>
         </Card>
-        <Card className="p-3">
+        <Card className="p-3 text-center">
           <p className="text-[11px] text-muted">Qualified</p>
-          <p className="text-lg font-semibold tabular">{d?.active ?? 0}</p>
+          <p className="text-lg font-bold tabular text-primary">{d?.active ?? 0}</p>
         </Card>
-        <Card className="p-3">
-          <p className="text-[11px] text-muted">Earned</p>
-          <p className="text-lg font-semibold tabular text-primary">+{formatPoints(d?.earned ?? 0)}</p>
+        <Card className="p-3 text-center">
+          <p className="text-[11px] text-muted">Points</p>
+          <p className="text-lg font-bold tabular text-primary">+{formatPoints(d?.earned ?? 0)}</p>
         </Card>
       </div>
-      <p className="mt-2 text-xs text-subtle">Reward per qualified referral: {d?.reward ?? 0} points</p>
+
+      {contest?.yourRank ? (
+        <p className="mt-2 text-center text-xs text-primary">
+          Aapka contest rank: #{contest.yourRank} ({contest.yourQualified} qualified)
+        </p>
+      ) : (
+        <p className="mt-2 text-center text-xs text-muted">Contest rank ke liye qualified referrals chahiye</p>
+      )}
+
+      <h2 className="mt-6 text-sm font-semibold">Top referrers (gifts)</h2>
+      <div className="mt-2 space-y-2">
+        {(contest?.topReferrers ?? []).length === 0 ? (
+          <Card className="text-sm text-muted">Abhi ranking empty — invite start karo.</Card>
+        ) : (
+          contest!.topReferrers.map((r) => (
+            <div
+              key={r.rank}
+              className={`flex items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2.5 ${
+                r.isYou ? "border-primary/40 bg-primary/5" : ""
+              }`}
+            >
+              <span className="w-6 text-center text-xs font-bold text-muted">#{r.rank}</span>
+              {r.rank <= 3 ? (
+                <img
+                  src={r.rank === 1 ? "/prizes/iphone12.svg" : r.rank === 2 ? "/prizes/ipad.svg" : "/prizes/earpods.svg"}
+                  alt=""
+                  className="h-8 w-8 object-contain"
+                />
+              ) : (
+                <img src="/prizes/gift.svg" alt="" className="h-8 w-8 object-contain" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">
+                  {r.name}
+                  {r.isYou ? " (you)" : ""}
+                  {r.isDemo ? " · sample" : ""}
+                </p>
+                <p className="text-[11px] text-muted">{r.count} qualified · {r.prize}</p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       <h2 className="mt-6 text-sm font-semibold">Recent referrals</h2>
       <div className="mt-2 space-y-2">
         {(d?.recent ?? []).length === 0 ? (

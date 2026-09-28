@@ -904,6 +904,12 @@ export const adminSaveSettings = createServerFn({ method: "POST" })
       "spin_prizes",
       "leaderboard_bonus_opens_at",
       "leaderboard_weekly_rewards",
+      "contest_title",
+      "contest_prize_1",
+      "contest_prize_2",
+      "contest_prize_3",
+      "contest_prize_4_10",
+      "referral_l2_reward",
     ]);
     for (const [key, value] of Object.entries(data.entries)) {
       if (!allowed.has(key)) continue;
@@ -1078,6 +1084,67 @@ export const adminRestoreDemoUsers = createServerFn({ method: "POST" })
     await audit(sql, context.userId, "demo.restore_users", "system", null, `Restored ${n} demo users`);
     return { ok: true, count: n };
   });
+
+export const adminRestoreReferralDemo = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    await requireAdmin(context.userId);
+    const sql = await getSql();
+    const first = ["Ahmed","Ali","Hassan","Bilal","Usman","Omar","Zain","Hamza","Faisal","Imran",
+      "Ayesha","Fatima","Sana","Hira","Iqra","Zara","Noor","Sara","Rabia","Nida",
+      "Danish","Salman","Adnan","Farhan","Yasir","Kashif","Rehan","Arslan","Saad","Anas"];
+    const second = ["Khan","Ali","Malik","Sheikh","Raza","Hussain","Ahmed","Iqbal","Butt","Mirza"];
+    let n = 0;
+    for (let i = 1; i <= 150; i++) {
+      const uid = `ref-demo-${String(i).padStart(3, "0")}`;
+      const name = `${first[(i - 1) % first.length]} ${second[(i - 1) % second.length]} R${i}`;
+      const code = `RF${String(i).padStart(4, "0")}`;
+      const pts = 1000 + (151 - i) * 20;
+      await sql`
+        insert into app_profiles (user_id, display_name, referral_code, lifetime_earned, points_balance, is_demo, status)
+        values (${uid}, ${name}, ${code}, ${pts}, ${pts}, true, 'active')
+        on conflict (user_id) do update set
+          display_name = excluded.display_name,
+          is_demo = true,
+          status = 'active',
+          updated_at = now()
+      `;
+      n += 1;
+    }
+    // clear old demo referrals for these users then re-seed top leaders
+    await sql`
+      delete from referrals where referrer_user_id like 'ref-demo-%' or referred_user_id like 'ref-demo-%'
+    `;
+    const counts = [28, 22, 18, 14, 12, 10, 9, 8, 7, 6];
+    let refIdx = 11;
+    for (let li = 1; li <= 10; li++) {
+      const referrer = `ref-demo-${String(li).padStart(3, "0")}`;
+      const cnt = counts[li - 1] ?? 5;
+      for (let c = 0; c < cnt; c++) {
+        if (refIdx > 150) break;
+        const refUid = `ref-demo-${String(refIdx).padStart(3, "0")}`;
+        refIdx += 1;
+        await sql`
+          insert into referrals (referrer_user_id, referred_user_id, status, rewarded_at)
+          values (${referrer}, ${refUid}, 'rewarded', now())
+          on conflict (referred_user_id) do nothing
+        `;
+        await sql`update app_profiles set referred_by = ${referrer} where user_id = ${refUid}`;
+      }
+    }
+    await sql`
+      insert into settings (key, value) values
+        ('contest_title', 'Referral Mega Contest'),
+        ('contest_prize_1', 'iPhone 12'),
+        ('contest_prize_2', 'iPad'),
+        ('contest_prize_3', 'EarPods'),
+        ('contest_prize_4_10', 'Gift pack')
+      on conflict (key) do update set value = excluded.value
+    `;
+    await audit(sql, context.userId, "demo.restore_referrals", "system", null, `Restored ${n} referral demo users`);
+    return { ok: true, count: n };
+  });
+
   export const adminGetWithdrawalStatus = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {

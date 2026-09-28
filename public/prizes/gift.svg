@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <rect x="25" y="50" width="70" height="50" rx="6" fill="#22c55e"/>
+  <rect x="20" y="40" width="80" height="18" rx="4" fill="#16a34a"/>
+  <rect x="55" y="40" width="10" height="60" fill="#fbbf24"/>
+  <path d="M60 40 C45 20 30 35 60 40 C90 35 75 20 60 40" fill="#f59e0b"/>
+  <text x="60" y="115" text-anchor="middle" font-size="9" fill="#22c55e" font-family="system-ui">Gift</text>
+</svg>
