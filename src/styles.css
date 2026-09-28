@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  /* Gaming rewards — dark + neon green (Earn.pk) */
-  --color-bg: #0a0e14;
-  --color-surface: #121820;
-  --color-surface-2: #1a222e;
-  --color-fg: #f0f4f8;
-  --color-muted: #8b9aab;
-  --color-subtle: #5c6b7a;
-  --color-primary: #22c55e;
-  --color-primary-fg: #04140a;
-  --color-border: color-mix(in oklab, #22c55e 16%, transparent);
-  --color-border-strong: color-mix(in oklab, #22c55e 32%, transparent);
-  --color-success: #22c55e;
-  --color-warning: #fbbf24;
-  --color-danger: #f87171;
-  --color-ring: #22c55e;
-  --color-gold: #f5c518;
-  --color-silver: #c0c7d1;
+  /* Default: white / cream + green accent (Earn.pk) */
+  --color-bg: #f7f4ef;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0ebe3;
+  --color-fg: #1a1f2c;
+  --color-muted: #5c6578;
+  --color-subtle: #8b93a7;
+  --color-primary: #16a34a;
+  --color-primary-fg: #ffffff;
+  --color-border: color-mix(in oklab, #1a1f2c 10%, transparent);
+  --color-border-strong: color-mix(in oklab, #16a34a 28%, transparent);
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-ring: #16a34a;
+  --color-gold: #eab308;
+  --color-silver: #94a3b8;
   --color-bronze: #cd7f32;
   --radius-xs: 4px;
   --radius-sm: 8px;
@@ -75,25 +75,25 @@
 
 .app-bg {
   background:
-    radial-gradient(900px 420px at 50% -12%, color-mix(in oklab, #22c55e 18%, transparent), transparent 55%),
-    radial-gradient(600px 300px at 90% 10%, color-mix(in oklab, #fbbf24 8%, transparent), transparent 50%),
+    radial-gradient(900px 420px at 50% -10%, color-mix(in oklab, #16a34a 12%, transparent), transparent 55%),
+    radial-gradient(500px 280px at 100% 0%, color-mix(in oklab, #fbbf24 8%, transparent), transparent 50%),
     var(--color-bg);
 }
 
 /* Podium */
 .podium-1 {
   background: linear-gradient(180deg, #22c55e 0%, #15803d 100%);
-  box-shadow: 0 0 24px color-mix(in oklab, #22c55e 40%, transparent);
+  box-shadow: 0 8px 20px color-mix(in oklab, #16a34a 25%, transparent);
 }
 .podium-2 {
-  background: linear-gradient(180deg, #64748b 0%, #334155 100%);
+  background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
 }
 .podium-3 {
-  background: linear-gradient(180deg, #cd7f32 0%, #8b5a2b 100%);
+  background: linear-gradient(180deg, #d4a574 0%, #cd7f32 100%);
 }
 
 .gift-glow {
-  filter: drop-shadow(0 0 28px color-mix(in oklab, #a855f7 45%, transparent));
+  filter: drop-shadow(0 8px 20px color-mix(in oklab, #a855f7 30%, transparent));
 }
 
 .coin-chip {
@@ -103,10 +103,10 @@
 }
 
 .btn-glow {
-  box-shadow: 0 0 20px color-mix(in oklab, #22c55e 40%, transparent);
+  box-shadow: 0 4px 14px color-mix(in oklab, #16a34a 30%, transparent);
 }
 
 .card-glow {
-  border-color: color-mix(in oklab, #22c55e 25%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in oklab, #22c55e 8%, transparent), 0 8px 28px rgba(0, 0, 0, 0.35);
+  border-color: color-mix(in oklab, #16a34a 20%, transparent);
+  box-shadow: 0 4px 20px rgba(26, 31, 44, 0.06);
 }
