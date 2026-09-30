@@ -86,7 +86,9 @@ export function mapProfile(r: ProfileRow): Profile {
     lifetimeRedeemed: Number(r.lifetime_redeemed),
     tasksCompleted: Number(r.tasks_completed),
     dailyStreak: Number(r.daily_streak),
-    lastDailyClaim: r.last_daily_claim,
+    lastDailyClaim: r.last_daily_claim
+      ? String(r.last_daily_claim).slice(0, 10)
+      : null,
     isAdmin: Boolean(r.is_admin),
     isDemo: Boolean(r.is_demo),
     createdAt: toIso(r.created_at),

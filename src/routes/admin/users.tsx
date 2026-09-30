@@ -100,7 +100,7 @@ function UsersPage() {
       </div>
 
       <p className="mt-2 text-xs text-muted">
-        {total} users · page {page + 1}/{totalPages}
+        {total} real users · page {page + 1}/{totalPages}
       </p>
 
       {/* Table / cards */}
@@ -115,6 +115,10 @@ function UsersPage() {
               <span className="tabular text-sm">{formatPoints(u.points)} pts</span>
               <Badge>{u.status}</Badge>
             </div>
+            <p className="text-[11px] text-muted">
+              Referrals: {(u as { referralTotal?: number }).referralTotal ?? 0} total ·{" "}
+              {(u as { referralQualified?: number }).referralQualified ?? 0} qualified
+            </p>
             <div className="flex flex-wrap gap-1">
               <Button size="sm" variant="secondary" onClick={() => adj.mutate(u.userId)}>
                 Adjust
@@ -147,6 +151,7 @@ function UsersPage() {
               <th>Points</th>
               <th>Earned</th>
               <th>Tasks</th>
+              <th>Referrals</th>
               <th>Status</th>
               <th></th>
             </tr>
@@ -249,8 +254,19 @@ function UsersPage() {
                     <p className="font-semibold tabular">{detail.data.tasks}</p>
                   </Card>
                   <Card>
-                    <p className="text-xs text-muted">Referrals</p>
-                    <p className="font-semibold tabular">{detail.data.referralCount}</p>
+                    <p className="text-xs text-muted">Referrals (total)</p>
+                    <p className="font-semibold tabular">
+                      {(detail.data as { referralTotal?: number }).referralTotal ??
+                        detail.data.referralCount}
+                    </p>
+                  </Card>
+                  <Card>
+                    <p className="text-xs text-muted">Qualified / Pending</p>
+                    <p className="font-semibold tabular">
+                      {(detail.data as { referralQualified?: number }).referralQualified ?? 0}
+                      {" / "}
+                      {(detail.data as { referralPending?: number }).referralPending ?? 0}
+                    </p>
                   </Card>
                 </div>
                 <p className="text-xs text-muted">

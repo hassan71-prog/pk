@@ -204,7 +204,11 @@ function Dashboard() {
           🎁
         </div>
         <p className="mt-2 text-xs text-muted">
-          {d.daily.claimed ? "Already claimed today — come back tomorrow" : `Open your day ${d.daily.dayNumber} reward`}
+          {d.daily.claimed
+            ? "Already claimed today — come back tomorrow"
+            : (d.daily as { missed?: boolean }).missed
+              ? `Streak reset — day 1 se dobara (+${d.daily.nextPoints})`
+              : `Open your day ${d.daily.dayNumber} reward`}
         </p>
         <Button
           className="mt-4 w-full rounded-xl text-base font-bold shadow-[0_0_20px_rgba(34,197,94,0.35)]"

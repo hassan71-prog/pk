@@ -123,29 +123,31 @@ export const adminListUsers = createServerFn({ method: "POST" })
     const offset = page * pageSize;
 
     const statusFilter =
-      status === "all" ? sql`` : sql`and status = ${status}`;
+      status === "all" ? sql`` : sql`and p.status = ${status}`;
 
     const searchFilter = q
       ? sql`and (
-          display_name ilike ${"%" + q + "%"}
-          or username ilike ${"%" + q + "%"}
-          or user_id ilike ${"%" + q + "%"}
-          or referral_code ilike ${"%" + q + "%"}
+          p.display_name ilike ${"%" + q + "%"}
+          or p.username ilike ${"%" + q + "%"}
+          or p.user_id ilike ${"%" + q + "%"}
+          or p.referral_code ilike ${"%" + q + "%"}
         )`
       : sql``;
 
     const countRows = await sql<{ n: number }>`
-      select count(*)::int as n from app_profiles
-      where is_demo = false ${statusFilter} ${searchFilter}
+      select count(*)::int as n from app_profiles p
+      where p.is_demo = false ${statusFilter} ${searchFilter}
     `;
     const total = Number(countRows[0]?.n ?? 0);
 
     const rows = await sql`
-      select user_id, display_name, username, points_balance, lifetime_earned,
-             tasks_completed, status, is_admin, is_demo, created_at, referral_code
-      from app_profiles
-      where is_demo = false ${statusFilter} ${searchFilter}
-      order by created_at desc
+      select p.user_id, p.display_name, p.username, p.points_balance, p.lifetime_earned,
+             p.tasks_completed, p.status, p.is_admin, p.is_demo, p.created_at, p.referral_code,
+             (select count(*)::int from referrals r where r.referrer_user_id = p.user_id) as referral_total,
+             (select count(*)::int from referrals r where r.referrer_user_id = p.user_id and r.status = 'rewarded') as referral_qualified
+      from app_profiles p
+      where p.is_demo = false ${statusFilter} ${searchFilter}
+      order by p.created_at desc
       limit ${pageSize} offset ${offset}
     `;
 
@@ -165,6 +167,8 @@ export const adminListUsers = createServerFn({ method: "POST" })
         isDemo: Boolean(r.is_demo),
         createdAt: toIso(r.created_at),
         referralCode: String(r.referral_code),
+        referralTotal: Number(r.referral_total ?? 0),
+        referralQualified: Number(r.referral_qualified ?? 0),
       })),
     };
   });
@@ -194,8 +198,14 @@ export const adminGetUserDetail = createServerFn({ method: "POST" })
       from withdrawals where user_id = ${data.userId}
       order by created_at desc limit 15
     `;
-    const refs = await sql`
-      select count(*)::int as n from app_profiles where referred_by = ${data.userId}
+    const refsTotal = await sql<{ n: number }>`
+      select count(*)::int as n from referrals where referrer_user_id = ${data.userId}
+    `;
+    const refsQualified = await sql<{ n: number }>`
+      select count(*)::int as n from referrals where referrer_user_id = ${data.userId} and status = 'rewarded'
+    `;
+    const refsPending = await sql<{ n: number }>`
+      select count(*)::int as n from referrals where referrer_user_id = ${data.userId} and status = 'pending'
     `;
 
     return {
@@ -214,7 +224,10 @@ export const adminGetUserDetail = createServerFn({ method: "POST" })
       telegramId: (p.telegram_id as string | null) ?? null,
       dailyStreak: Number(p.daily_streak),
       referredBy: (p.referred_by as string | null) ?? null,
-      referralCount: Number(refs[0]?.n ?? 0),
+      referralCount: Number(refsTotal[0]?.n ?? 0),
+      referralTotal: Number(refsTotal[0]?.n ?? 0),
+      referralQualified: Number(refsQualified[0]?.n ?? 0),
+      referralPending: Number(refsPending[0]?.n ?? 0),
       transactions: txs.map((t) => ({
         id: Number(t.id),
         type: String(t.type),

@@ -116,6 +116,13 @@ export const getDashboard = createServerFn({ method: "POST" })
 
 type Sql = Awaited<ReturnType<typeof getSql>>;
 
+function normDate(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const s = String(v).trim();
+  if (s.length >= 10) return s.slice(0, 10);
+  return s || null;
+}
+
 async function dailyStatus(sql: Sql, userId: string, profile: Profile) {
   const raw = await getSetting(sql, "daily_schedule", "[100,150,200,250,300,400,500]");
   let schedule: number[] = [100, 150, 200, 250, 300, 400, 500];
@@ -128,14 +135,32 @@ async function dailyStatus(sql: Sql, userId: string, profile: Profile) {
     /* keep default */
   }
   const todayRows = await sql<{ d: string }>`select (now() + interval '5 hours')::date::text as d`;
+  const yesterdayRows = await sql<{ d: string }>`
+    select ((now() + interval '5 hours')::date - 1)::text as d
+  `;
   const today = todayRows[0]?.d ?? "";
-  const claimed = profile.lastDailyClaim === today;
-  const streak = claimed ? profile.dailyStreak : profile.lastDailyClaim ? profile.dailyStreak : 0;
-  const dayNumber = claimed
-    ? ((profile.dailyStreak - 1) % schedule.length) + 1
-    : (profile.dailyStreak % schedule.length) + 1;
+  const yesterday = yesterdayRows[0]?.d ?? "";
+  const last = normDate(profile.lastDailyClaim);
+  const claimed = last === today;
+  const streakAlive = claimed || last === yesterday;
+  const displayStreak = streakAlive ? profile.dailyStreak : 0;
+  let dayNumber: number;
+  if (claimed) {
+    dayNumber = ((profile.dailyStreak - 1) % schedule.length) + 1;
+  } else if (streakAlive) {
+    dayNumber = (profile.dailyStreak % schedule.length) + 1;
+  } else {
+    dayNumber = 1;
+  }
   const nextPoints = schedule[(dayNumber - 1) % schedule.length] ?? 100;
-  return { claimed, streak: profile.dailyStreak, nextPoints, schedule, dayNumber };
+  return {
+    claimed,
+    streak: displayStreak,
+    nextPoints,
+    schedule,
+    dayNumber,
+    missed: !claimed && !streakAlive && Boolean(last),
+  };
 }
 
 async function loadTasks(sql: Sql, userId: string, featuredOnly = false): Promise<TaskRow[]> {
@@ -429,15 +454,16 @@ export const claimDaily = createServerFn({ method: "POST" })
       const profile = await ensureProfile(context.userId);
       const sql = await getSql();
       const status = await dailyStatus(sql, context.userId, profile);
-      if (status.claimed) throw new AppError("You already claimed today's reward.");
+      if (status.claimed) throw new AppError("Aaj ka reward pehle hi claim ho chuka hai.");
       const todayRows = await sql<{ d: string }>`select (now() + interval '5 hours')::date::text as d`;
       const today = todayRows[0]!.d;
       const yesterdayRows = await sql<{ d: string }>`
         select ((now() + interval '5 hours')::date - 1)::text as d
       `;
       const yesterday = yesterdayRows[0]?.d;
-      // Miss a day → streak restarts from 1 (like normal daily check-in)
-      const continued = profile.lastDailyClaim === yesterday;
+      // Miss a day → day 1 points dobara, logout ki zaroorat nahi
+      const last = normDate(profile.lastDailyClaim);
+      const continued = last === yesterday;
       const streak = continued ? profile.dailyStreak + 1 : 1;
       const dayNumber = ((streak - 1) % status.schedule.length) + 1;
       const points = status.schedule[dayNumber - 1] ?? 100;
@@ -448,7 +474,7 @@ export const claimDaily = createServerFn({ method: "POST" })
           values (${context.userId}, ${today}, ${dayNumber}, ${points})
         `;
       } catch {
-        throw new AppError("You already claimed today's reward.");
+        throw new AppError("Aaj ka reward pehle hi claim ho chuka hai.");
       }
 
       await sql`
